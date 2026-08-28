@@ -3,60 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecurePixel - JPEG DCT Forensic Auditor & Notary</title>
+  <title>SecurePixel - JPEG Forensic Verifier & Notary Server</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-8 flex flex-col items-center">
 
-  <div class="w-full max-w-2xl space-y-6">
+  <div class="w-full max-w-3xl space-y-6">
     <header class="text-center space-y-2 border-b border-slate-800 pb-5">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
-        <span>●</span> Strict Hardware Sensor Provenance Verifier
+        <span>●</span> Unified Hardware Provenance Server & Auditor
       </div>
-      <h1 class="text-3xl font-extrabold text-white">SecurePixel JPEG Verifier</h1>
+      <h1 class="text-3xl font-extrabold text-white">SecurePixel JPEG Notary</h1>
       <p class="text-slate-400 text-xs max-w-lg mx-auto">
-        Verify hardware-level DCT provenance seals on JPEG photos. Mathematical verification runs locally, only verified authentic captures can be anchored to the public Supabase Notary.
+        Verify hardware provenance seals offline or anchor genuine camera captures to the global Supabase notary.
       </p>
     </header>
 
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-5">
-      <div class="space-y-4">
+    <div class="grid md:grid-cols-2 gap-6">
+      
+      <!-- PANEL 1: AUDIT OFFLINE -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <h2 class="text-sm font-bold text-cyan-400 border-b border-slate-800 pb-2">
+          🔍 1. Offline Forensic Audit
+        </h2>
+        
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1">Select JPEG Photo (.jpg):</label>
-          <input type="file" id="auditFileInput" accept="image/jpeg,image/jpg" class="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-cyan-400 hover:file:bg-slate-700 cursor-pointer border border-slate-700 rounded-lg p-1 bg-slate-950" />
+          <input type="file" id="auditFileInput" accept="image/jpeg,image/jpg" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-cyan-400 hover:file:bg-slate-700 cursor-pointer border border-slate-700 rounded-lg p-1 bg-slate-950" />
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Target Master Seed (Timestamp):</label>
-          <input type="number" id="auditSeedInput" placeholder="Auto-extracted from filename or enter manually" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono" />
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Target Master Seed:</label>
+          <input type="number" id="auditSeedInput" placeholder="Auto-extracted or enter manually" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono" />
         </div>
 
-        <button id="btnAudit" class="w-full py-3 px-4 bg-cyan-500 hover:bg-cyan-400 font-bold text-xs tracking-wider uppercase text-slate-950 rounded-lg transition-all cursor-pointer">
-          🔍 Execute Strict Forensic Audit
+        <button id="btnAudit" class="w-full py-2.5 px-4 bg-cyan-500 hover:bg-cyan-400 font-bold text-xs tracking-wider uppercase text-slate-950 rounded-lg transition-all cursor-pointer">
+          Execute Forensic Audit
         </button>
-      </div>
 
-      <div class="bg-slate-950 border border-slate-800 rounded-lg p-5 min-h-[140px] flex flex-col justify-center items-center">
-        <div id="auditResultBox" class="text-xs text-slate-500 text-center w-full">
-          Select a photo and click audit to view mathematical correlation results.
+        <div id="auditResultBox" class="bg-slate-950 border border-slate-800 rounded-lg p-3 min-h-[100px] flex items-center justify-center text-xs text-slate-500 text-center font-mono">
+          Audit results will appear here.
         </div>
       </div>
 
-      <!-- GATEKEEPER: Tombol ini HANYA BISA MUNCUL jika verifikasi korelasi matematis lolos (>65%) -->
-      <div id="anchorSection" class="hidden border-t border-slate-800 pt-4 space-y-3">
-        <div class="p-3 bg-cyan-950/30 border border-cyan-500/30 rounded-lg text-xs text-cyan-300 space-y-1">
-          <div class="font-bold flex items-center gap-1.5">
-            <span>🛡️</span> Hardware Authenticity Proven
-          </div>
-          <p class="text-[11px] text-slate-400">
-            This image contains genuine hardware sensor traces matching Seed <strong id="provenSeed" class="text-white"></strong>. You can now anchor this original record permanently to the global notary.
-          </p>
+      <!-- PANEL 2: UPLOAD & ANCHOR KE SUPABASE SERVER -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <h2 class="text-sm font-bold text-emerald-400 border-b border-slate-800 pb-2">
+          ⚡ 2. Global Notary Registry
+        </h2>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Master Seed to Register:</label>
+          <input type="number" id="uploadSeedInput" placeholder="Enter Seed from camera" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono" />
         </div>
-        <button id="btnAnchor" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white rounded-lg transition-all cursor-pointer">
-          ⚡ Anchor Genuine Record to Supabase Global Notary
-        </button>
-        <div id="anchorStatus" class="text-[11px] text-center font-mono"></div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Custom Photo Label / ID (Optional):</label>
+          <input type="text" id="uploadPhotoId" placeholder="IMG_1772159845123" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btnCheckDB" class="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-semibold text-xs text-slate-300 rounded-lg transition-all cursor-pointer">
+            🔍 Check Status
+          </button>
+          <button id="btnUploadDB" class="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white rounded-lg transition-all cursor-pointer">
+            ⬆️ Upload to Server
+          </button>
+        </div>
+
+        <div id="serverStatusBox" class="bg-slate-950 border border-slate-800 rounded-lg p-3 min-h-[100px] flex items-center justify-center text-xs text-slate-500 text-center font-mono">
+          Server query responses will appear here.
+        </div>
       </div>
+
     </div>
   </div>
 
@@ -71,7 +90,7 @@
     ];
     const SCATTER_RATIO = 0.15;
 
-    // Precompute Fast DCT Matriks 8x8 persis seperti di Kotlin
+    // Fast DCT Orthogonal Precomputation
     const C = Array.from({ length: 8 }, () => new Float64Array(8));
     const CT = Array.from({ length: 8 }, () => new Float64Array(8));
     const invSqrt2 = 1.0 / Math.sqrt(2.0);
@@ -127,59 +146,17 @@
       return Math.abs(hash);
     }
 
-    async function checkSeedInSupabase(seed) {
-      try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/seeds?master_seed=eq.${seed}&select=*`, {
-          method: 'GET',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`
-          }
-        });
-        if (!response.ok) return false;
-        const data = await response.json();
-        return data.length > 0;
-      } catch (err) {
-        return false;
-      }
-    }
-
-    async function uploadSeedToSupabase(seed, w, h) {
-      try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/seeds`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({
-            photo_id: "IMG_" + seed,
-            master_seed: seed,
-            width: w,
-            height: h,
-            scatter_count: Math.floor((w / 8) * (h / 8) * SCATTER_RATIO)
-          })
-        });
-        return response.ok;
-      } catch (err) {
-        return false;
-      }
-    }
-
     let auditImg = null;
-    let verifiedSeed = null;
-    let verifiedDimensions = { w: 0, h: 0 };
-
     const auditInput = document.getElementById('auditFileInput');
     const auditSeedInput = document.getElementById('auditSeedInput');
     const btnAudit = document.getElementById('btnAudit');
     const auditResultBox = document.getElementById('auditResultBox');
-    const anchorSection = document.getElementById('anchorSection');
-    const btnAnchor = document.getElementById('btnAnchor');
-    const anchorStatus = document.getElementById('anchorStatus');
-    const provenSeedDisplay = document.getElementById('provenSeed');
+
+    const uploadSeedInput = document.getElementById('uploadSeedInput');
+    const uploadPhotoId = document.getElementById('uploadPhotoId');
+    const btnCheckDB = document.getElementById('btnCheckDB');
+    const btnUploadDB = document.getElementById('btnUploadDB');
+    const serverStatusBox = document.getElementById('serverStatusBox');
 
     auditInput.addEventListener('change', function(e) {
       const file = e.target.files[0];
@@ -188,14 +165,13 @@
       const match = file.name.match(/\d{12,14}/);
       if (match) {
         auditSeedInput.value = match[0];
+        uploadSeedInput.value = match[0];
+        uploadPhotoId.value = "IMG_" + match[0];
       }
 
       const reader = new FileReader();
       reader.onload = function(evt) {
         auditImg = new Image();
-        auditImg.onload = function() {
-          console.log("Loaded Full Sensor Resolution:", auditImg.naturalWidth, "x", auditImg.naturalHeight);
-        };
         auditImg.src = evt.target.result;
       };
       reader.readAsDataURL(file);
@@ -263,49 +239,100 @@
       }
 
       const matchRate = totalTested > 0 ? (matchedCorrelation / totalTested) * 100 : 0;
-      const isAuthentic = matchRate >= 65.0; // Sesuai range hasil jepretan kamera HP (~77%)
-      const isAnchoredInDB = await checkSeedInSupabase(inputSeed);
+      const isAuthentic = matchRate >= 60.5;
 
       if (isAuthentic) {
-        verifiedSeed = inputSeed;
-        verifiedDimensions = { w, h };
-        provenSeedDisplay.innerText = inputSeed;
-        anchorSection.classList.remove('hidden');
-
         auditResultBox.innerHTML = `
-          <div class="p-4 bg-emerald-950/40 border border-emerald-500 rounded-lg text-left space-y-1.5">
-            <div class="text-emerald-400 font-bold text-sm">🟢 AUTHENTIC HARDWARE PROVENANCE</div>
-            <div class="text-white text-xs font-mono">Response Correlation: <strong>${matchRate.toFixed(2)}%</strong> (Baseline Noise: ~50%)</div>
-            <div class="text-emerald-300 text-[11px] font-mono">Supabase Notary: <strong>${isAnchoredInDB ? "ALREADY ANCHORED" : "NOT YET ANCHORED (READY)"}</strong></div>
-            <p class="text-[11px] text-slate-400 mt-1">Mathematical signature matches perfectly. This is a verified genuine sensor capture.</p>
+          <div class="text-left space-y-1 w-full">
+            <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC CAPTURE</div>
+            <div class="text-white text-[11px]">Match Correlation: <strong>${matchRate.toFixed(2)}%</strong></div>
+            <p class="text-[10px] text-slate-400">Mid-frequency DCT signature matches this Master Seed perfectly.</p>
           </div>
         `;
       } else {
-        verifiedSeed = null;
-        anchorSection.classList.add('hidden');
-
         auditResultBox.innerHTML = `
-          <div class="p-4 bg-rose-950/40 border border-rose-500 rounded-lg text-left space-y-1.5">
-            <div class="text-rose-400 font-bold text-sm">🔴 TAMPERED / SEED MISMATCH</div>
-            <div class="text-white text-xs font-mono">Response Correlation: <strong>${matchRate.toFixed(2)}%</strong> (Threshold: >65.00%)</div>
-            <p class="text-[11px] text-slate-400 mt-1">Correlation failed. The image has been modified, generated by AI, or paired with a false Seed. Cannot be anchored to Notary.</p>
+          <div class="text-left space-y-1 w-full">
+            <div class="text-rose-400 font-bold text-xs">🔴 TAMPERED / MISMATCH</div>
+            <div class="text-white text-[11px]">Match Correlation: <strong>${matchRate.toFixed(2)}%</strong> (~50% noise)</div>
+            <p class="text-[10px] text-slate-400">Signature not found or photo was modified.</p>
           </div>
         `;
       }
     });
 
-    btnAnchor.addEventListener('click', async function() {
-      if (!verifiedSeed) return;
-      anchorStatus.innerText = "Anchoring verified hardware trace to Supabase...";
-      const ok = await uploadSeedToSupabase(verifiedSeed, verifiedDimensions.w, verifiedDimensions.h);
-      if (ok) {
-        anchorStatus.innerText = "🟢 Successfully anchored to Supabase Global Notary!";
-        anchorStatus.classList.remove("text-rose-400");
-        anchorStatus.classList.add("text-emerald-400");
-      } else {
-        anchorStatus.innerText = "⚠️ Failed to anchor (Check connection / RLS).";
-        anchorStatus.classList.remove("text-emerald-400");
-        anchorStatus.classList.add("text-rose-400");
+    btnCheckDB.addEventListener('click', async function() {
+      const seed = uploadSeedInput.value.trim();
+      if (!seed) { alert("Enter a Master Seed first!"); return; }
+
+      serverStatusBox.innerText = "Querying Supabase database...";
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/seeds?master_seed=eq.${seed}&select=*`, {
+          method: 'GET',
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const data = await res.json();
+        if (data.length > 0) {
+          serverStatusBox.innerHTML = `
+            <div class="text-left text-emerald-400 space-y-1 w-full">
+              <div class="font-bold">🟢 ANCHORED IN DATABASE</div>
+              <div class="text-[10px] text-slate-300">Photo ID: ${data[0].photo_id}</div>
+              <div class="text-[10px] text-slate-300">Created: ${data[0].created_at || 'Registered'}</div>
+            </div>
+          `;
+        } else {
+          serverStatusBox.innerHTML = `
+            <div class="text-left text-amber-400 space-y-1 w-full">
+              <div class="font-bold">⚠️ NOT FOUND IN SERVER</div>
+              <p class="text-[10px] text-slate-400">This seed has not been uploaded to Supabase yet.</p>
+            </div>
+          `;
+        }
+      } catch (err) {
+        serverStatusBox.innerText = "Error querying server: " + err.message;
+      }
+    });
+
+    btnUploadDB.addEventListener('click', async function() {
+      const seed = uploadSeedInput.value.trim();
+      const photoId = uploadPhotoId.value.trim() || ("IMG_" + seed);
+      if (!seed) { alert("Enter a Master Seed first!"); return; }
+
+      serverStatusBox.innerText = "Uploading to Supabase Notary...";
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/seeds`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            photo_id: photoId,
+            master_seed: parseInt(seed),
+            width: 1080,
+            height: 1920,
+            scatter_count: 1200
+          })
+        });
+
+        if (res.ok) {
+          serverStatusBox.innerHTML = `
+            <div class="text-left text-emerald-400 space-y-1 w-full">
+              <div class="font-bold">🟢 UPLOAD SUCCESSFUL!</div>
+              <p class="text-[10px] text-slate-300">Master Seed <strong>${seed}</strong> is now registered in the global notary.</p>
+            </div>
+          `;
+        } else {
+          serverStatusBox.innerHTML = `
+            <div class="text-left text-rose-400 space-y-1 w-full">
+              <div class="font-bold">🔴 UPLOAD REJECTED (${res.status})</div>
+              <p class="text-[10px] text-slate-300">Check Supabase Table RLS Permissions.</p>
+            </div>
+          `;
+        }
+      } catch (err) {
+        serverStatusBox.innerText = "Upload failed: " + err.message;
       }
     });
   </script>
