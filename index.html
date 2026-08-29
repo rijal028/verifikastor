@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecurePixel - JPEG WhatsApp & Social Media Robust Verifier</title>
+  <title>SecurePixel - Differential DCT Provenance Notary</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-8 flex flex-col items-center">
@@ -11,20 +11,20 @@
   <div class="w-full max-w-3xl space-y-6">
     <header class="text-center space-y-2 border-b border-slate-800 pb-5">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
-        <span>●</span> WhatsApp & Compression-Resistant Verifier
+        <span>●</span> Intra-Block Differential DCT Notary
       </div>
-      <h1 class="text-3xl font-extrabold text-white">SecurePixel Notary Lab</h1>
+      <h1 class="text-3xl font-extrabold text-white">SecurePixel Provenance Lab</h1>
       <p class="text-slate-400 text-xs max-w-lg mx-auto">
-        Verify original JPEG camera captures or heavily-compressed images from WhatsApp (down to ~65 KB).
+        Verify hardware provenance seals on original JPEG captures or compressed media from WhatsApp.
       </p>
     </header>
 
     <div class="grid md:grid-cols-2 gap-6">
       
-      <!-- PANEL 1: AUDIT OFFLINE (ASLI & HASIL WHATSAPP) -->
+      <!-- PANEL 1: AUDIT OFFLINE -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
         <h2 class="text-sm font-bold text-cyan-400 border-b border-slate-800 pb-2">
-          🔍 1. Forensic Audit (Original / WhatsApp)
+          🔍 1. Forensic Audit
         </h2>
         
         <div>
@@ -46,7 +46,7 @@
         </div>
       </div>
 
-      <!-- PANEL 2: GLOBAL NOTARY REGISTRY (SERVER SUPABASE) -->
+      <!-- PANEL 2: GLOBAL NOTARY REGISTRY -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
         <h2 class="text-sm font-bold text-emerald-400 border-b border-slate-800 pb-2">
           ⚡ 2. Global Notary Registry
@@ -58,7 +58,7 @@
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Custom Photo Label / Tag:</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Custom Photo Label / ID:</label>
           <input type="text" id="uploadPhotoId" placeholder="IMG_1772159845123" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono" />
         </div>
 
@@ -83,14 +83,14 @@
     const SUPABASE_URL = 'https://mxswcmykijdnjnahhyqr.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14c3djbXlraWpkbmpuYWhoeXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NTc3NTcsImV4cCI6MjEwMDUzMzc1N30.YpofSN8iYaFYhfELXGYySGjYXr0TmiAeJVyeNCzgF7Q';
 
-    const ZIGZAG_MID = [
-      [3,0], [2,1], [1,2], [0,3],
-      [0,4], [1,3], [2,2], [3,1], [4,0],
-      [5,0], [4,1], [3,2], [2,3], [1,4], [0,5]
+    const PAIRS = [
+      [3, 1, 1, 3],
+      [4, 1, 1, 4],
+      [3, 2, 2, 3],
+      [2, 4, 4, 2]
     ];
-    const SCATTER_RATIO = 0.25;
+    const SCATTER_RATIO = 0.35;
 
-    // Fast DCT Orthogonal Precomputation (1:1 Sama Persis dengan Kotlin)
     const C = Array.from({ length: 8 }, () => new Float64Array(8));
     const CT = Array.from({ length: 8 }, () => new Float64Array(8));
     const invSqrt2 = 1.0 / Math.sqrt(2.0);
@@ -225,12 +225,16 @@
 
           fastForwardDCT(blockY, dct);
 
-          for (let i = 0; i < ZIGZAG_MID.length; i++) {
-            let pos = ZIGZAG_MID[i];
-            let expectedSign = rng() > 0.5 ? 1 : -1;
-            let actualVal = dct[pos[0] * 8 + pos[1]];
+          // Cek Pasangan Paritas Diferensial
+          for (let i = 0; i < PAIRS.length; i++) {
+            const p = PAIRS[i];
+            const idxA = p[0] * 8 + p[1];
+            const idxB = p[2] * 8 + p[3];
+            const expectedBit = rng() > 0.5 ? 1 : 0;
 
-            if ((actualVal >= 0 && expectedSign === 1) || (actualVal < 0 && expectedSign === -1)) {
+            const actualBit = dct[idxA] > dct[idxB] ? 1 : 0;
+
+            if (actualBit === expectedBit) {
               matchedCorrelation++;
             }
             totalTested++;
@@ -239,15 +243,15 @@
       }
 
       const matchRate = totalTested > 0 ? (matchedCorrelation / totalTested) * 100 : 0;
-      // Ambang batas: Baseline acak ~50.00%. Hasil foto bertanda asli/WA lolos di >= 59.00%
-      const isAuthentic = matchRate >= 59.0;
+      // Ambang batas: Noise acak ~50.00%. Hasil kamera asli & kompresi WA lolos di >= 65.00%
+      const isAuthentic = matchRate >= 65.0;
 
       if (isAuthentic) {
         auditResultBox.innerHTML = `
           <div class="text-left space-y-1 w-full">
-            <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC HARDWARE CAPTURE</div>
+            <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC PROVENANCE</div>
             <div class="text-white text-[11px]">Match Correlation: <strong>${matchRate.toFixed(2)}%</strong></div>
-            <p class="text-[10px] text-slate-400">Pola frekuensi gradasi DCT cocok persis dengan Master Seed ini (Tahan Kompresi WhatsApp).</p>
+            <p class="text-[10px] text-slate-400">Pola diferensial frekuensi cocok persis dengan Master Seed ini.</p>
           </div>
         `;
       } else {
@@ -255,7 +259,7 @@
           <div class="text-left space-y-1 w-full">
             <div class="text-rose-400 font-bold text-xs">🔴 TAMPERED / SEED MISMATCH</div>
             <div class="text-white text-[11px]">Match Correlation: <strong>${matchRate.toFixed(2)}%</strong> (~50% acak)</div>
-            <p class="text-[10px] text-slate-400">Tanda tidak cocok, seed salah, atau foto telah diedit.</p>
+            <p class="text-[10px] text-slate-400">Pola frekuensi tidak cocok, seed salah, atau foto dimodifikasi.</p>
           </div>
         `;
       }
@@ -275,7 +279,7 @@
         if (data.length > 0) {
           serverStatusBox.innerHTML = `
             <div class="text-left text-emerald-400 space-y-1 w-full">
-              <div class="font-bold">🟢 REGISTERED IN DATABASE</div>
+              <div class="font-bold">🟢 ANCHORED IN DATABASE</div>
               <div class="text-[10px] text-slate-300">Photo ID: ${data[0].photo_id}</div>
               <div class="text-[10px] text-slate-300">Created: ${data[0].created_at || 'Recorded'}</div>
             </div>
