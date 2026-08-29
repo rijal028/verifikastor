@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecurePixel - JPEG Forensic Verifier & Notary Server</title>
+  <title>SecurePixel - JPEG WhatsApp & Social Media Robust Verifier</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-8 flex flex-col items-center">
@@ -11,20 +11,20 @@
   <div class="w-full max-w-3xl space-y-6">
     <header class="text-center space-y-2 border-b border-slate-800 pb-5">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
-        <span>●</span> Unified Hardware Provenance Server & Auditor
+        <span>●</span> WhatsApp & Compression-Resistant Verifier
       </div>
-      <h1 class="text-3xl font-extrabold text-white">SecurePixel JPEG Notary</h1>
+      <h1 class="text-3xl font-extrabold text-white">SecurePixel Notary Lab</h1>
       <p class="text-slate-400 text-xs max-w-lg mx-auto">
-        Verify hardware provenance seals offline or anchor genuine camera captures to the global Supabase notary.
+        Verify original JPEG camera captures or heavily-compressed images from WhatsApp (down to ~65 KB).
       </p>
     </header>
 
     <div class="grid md:grid-cols-2 gap-6">
       
-      <!-- PANEL 1: AUDIT OFFLINE -->
+      <!-- PANEL 1: AUDIT OFFLINE (ASLI & HASIL WHATSAPP) -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
         <h2 class="text-sm font-bold text-cyan-400 border-b border-slate-800 pb-2">
-          🔍 1. Offline Forensic Audit
+          🔍 1. Forensic Audit (Original / WhatsApp)
         </h2>
         
         <div>
@@ -33,7 +33,7 @@
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Target Master Seed:</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Target Master Seed (Timestamp):</label>
           <input type="number" id="auditSeedInput" placeholder="Auto-extracted or enter manually" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono" />
         </div>
 
@@ -46,19 +46,19 @@
         </div>
       </div>
 
-      <!-- PANEL 2: UPLOAD & ANCHOR KE SUPABASE SERVER -->
+      <!-- PANEL 2: GLOBAL NOTARY REGISTRY (SERVER SUPABASE) -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
         <h2 class="text-sm font-bold text-emerald-400 border-b border-slate-800 pb-2">
           ⚡ 2. Global Notary Registry
         </h2>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Master Seed to Register:</label>
-          <input type="number" id="uploadSeedInput" placeholder="Enter Seed from camera" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono" />
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Master Seed to Anchor / Check:</label>
+          <input type="number" id="uploadSeedInput" placeholder="Enter Master Seed" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono" />
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Custom Photo Label / ID (Optional):</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Custom Photo Label / Tag:</label>
           <input type="text" id="uploadPhotoId" placeholder="IMG_1772159845123" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono" />
         </div>
 
@@ -67,7 +67,7 @@
             🔍 Check Status
           </button>
           <button id="btnUploadDB" class="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white rounded-lg transition-all cursor-pointer">
-            ⬆️ Upload to Server
+            ⬆️ Anchor to Server
           </button>
         </div>
 
@@ -88,9 +88,9 @@
       [0,4], [1,3], [2,2], [3,1], [4,0],
       [5,0], [4,1], [3,2], [2,3], [1,4], [0,5]
     ];
-    const SCATTER_RATIO = 0.15;
+    const SCATTER_RATIO = 0.25;
 
-    // Fast DCT Orthogonal Precomputation
+    // Fast DCT Orthogonal Precomputation (1:1 Sama Persis dengan Kotlin)
     const C = Array.from({ length: 8 }, () => new Float64Array(8));
     const CT = Array.from({ length: 8 }, () => new Float64Array(8));
     const invSqrt2 = 1.0 / Math.sqrt(2.0);
@@ -239,22 +239,23 @@
       }
 
       const matchRate = totalTested > 0 ? (matchedCorrelation / totalTested) * 100 : 0;
-      const isAuthentic = matchRate >= 60.5;
+      // Ambang batas: Baseline acak ~50.00%. Hasil foto bertanda asli/WA lolos di >= 59.00%
+      const isAuthentic = matchRate >= 59.0;
 
       if (isAuthentic) {
         auditResultBox.innerHTML = `
           <div class="text-left space-y-1 w-full">
-            <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC CAPTURE</div>
+            <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC HARDWARE CAPTURE</div>
             <div class="text-white text-[11px]">Match Correlation: <strong>${matchRate.toFixed(2)}%</strong></div>
-            <p class="text-[10px] text-slate-400">Mid-frequency DCT signature matches this Master Seed perfectly.</p>
+            <p class="text-[10px] text-slate-400">Pola frekuensi gradasi DCT cocok persis dengan Master Seed ini (Tahan Kompresi WhatsApp).</p>
           </div>
         `;
       } else {
         auditResultBox.innerHTML = `
           <div class="text-left space-y-1 w-full">
-            <div class="text-rose-400 font-bold text-xs">🔴 TAMPERED / MISMATCH</div>
-            <div class="text-white text-[11px]">Match Correlation: <strong>${matchRate.toFixed(2)}%</strong> (~50% noise)</div>
-            <p class="text-[10px] text-slate-400">Signature not found or photo was modified.</p>
+            <div class="text-rose-400 font-bold text-xs">🔴 TAMPERED / SEED MISMATCH</div>
+            <div class="text-white text-[11px]">Match Correlation: <strong>${matchRate.toFixed(2)}%</strong> (~50% acak)</div>
+            <p class="text-[10px] text-slate-400">Tanda tidak cocok, seed salah, atau foto telah diedit.</p>
           </div>
         `;
       }
@@ -274,16 +275,16 @@
         if (data.length > 0) {
           serverStatusBox.innerHTML = `
             <div class="text-left text-emerald-400 space-y-1 w-full">
-              <div class="font-bold">🟢 ANCHORED IN DATABASE</div>
+              <div class="font-bold">🟢 REGISTERED IN DATABASE</div>
               <div class="text-[10px] text-slate-300">Photo ID: ${data[0].photo_id}</div>
-              <div class="text-[10px] text-slate-300">Created: ${data[0].created_at || 'Registered'}</div>
+              <div class="text-[10px] text-slate-300">Created: ${data[0].created_at || 'Recorded'}</div>
             </div>
           `;
         } else {
           serverStatusBox.innerHTML = `
             <div class="text-left text-amber-400 space-y-1 w-full">
               <div class="font-bold">⚠️ NOT FOUND IN SERVER</div>
-              <p class="text-[10px] text-slate-400">This seed has not been uploaded to Supabase yet.</p>
+              <p class="text-[10px] text-slate-400">Seed ini belum pernah di-upload ke Supabase.</p>
             </div>
           `;
         }
@@ -320,7 +321,7 @@
           serverStatusBox.innerHTML = `
             <div class="text-left text-emerald-400 space-y-1 w-full">
               <div class="font-bold">🟢 UPLOAD SUCCESSFUL!</div>
-              <p class="text-[10px] text-slate-300">Master Seed <strong>${seed}</strong> is now registered in the global notary.</p>
+              <p class="text-[10px] text-slate-300">Master Seed <strong>${seed}</strong> resmi tercatat di database.</p>
             </div>
           `;
         } else {
