@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecurePixel - Low-Mid Differential Provenance Verifier</title>
+  <title>SecurePixel - 5% Lightweight Provenance Verifier</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-8 flex flex-col items-center">
@@ -11,38 +11,38 @@
   <div class="w-full max-w-3xl space-y-6">
     <header class="text-center space-y-2 border-b border-slate-800 pb-5">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
-        <span>●</span> Low-Mid Frequency Differential Auditor
+        <span>●</span> 5% Sparse Differential Auditor
       </div>
       <h1 class="text-3xl font-extrabold text-white">SecurePixel Provenance Lab</h1>
       <p class="text-slate-400 text-xs max-w-lg mx-auto">
-        Verify hardware provenance on original JPEG captures or multi-compressed media from WhatsApp/Social Media.
+        Verifikasi keaslian hardware kamera dengan sebaran ringan 5% (100% mulus tanpa bintik visual).
       </p>
     </header>
 
     <div class="grid md:grid-cols-2 gap-6">
       
-      <!-- PANEL 1: AUDIT OFFLINE DENGAN SCALE-INVARIANT -->
+      <!-- PANEL 1: AUDIT OFFLINE -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
         <h2 class="text-sm font-bold text-cyan-400 border-b border-slate-800 pb-2">
           🔍 1. Forensic Audit (Original & Multi-Hop WA)
         </h2>
         
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Select JPEG File (.jpg):</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih File JPEG (.jpg):</label>
           <input type="file" id="auditFileInput" accept="image/jpeg,image/jpg" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-cyan-400 hover:file:bg-slate-700 cursor-pointer border border-slate-700 rounded-lg p-1 bg-slate-950" />
         </div>
 
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1">Master Seed (Timestamp):</label>
-          <input type="number" id="auditSeedInput" placeholder="Auto-extracted from filename or enter manually" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono" />
+          <input type="number" id="auditSeedInput" placeholder="Otomatis terbaca dari nama file atau ketik manual" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono" />
         </div>
 
         <button id="btnAudit" class="w-full py-2.5 px-4 bg-cyan-500 hover:bg-cyan-400 font-bold text-xs tracking-wider uppercase text-slate-950 rounded-lg transition-all cursor-pointer">
-          Execute Forensic Audit
+          Jalankan Audit Forensik
         </button>
 
         <div id="auditResultBox" class="bg-slate-950 border border-slate-800 rounded-lg p-3 min-h-[110px] flex items-center justify-center text-xs text-slate-500 text-center font-mono">
-          Audit results will appear here.
+          Hasil audit akan muncul di sini.
         </div>
       </div>
 
@@ -53,26 +53,26 @@
         </h2>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Master Seed to Anchor / Check:</label>
-          <input type="number" id="uploadSeedInput" placeholder="Enter Master Seed" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono" />
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Master Seed untuk Dicatat:</label>
+          <input type="number" id="uploadSeedInput" placeholder="Masukkan Master Seed" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono" />
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Photo Label / ID:</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Label Foto / ID:</label>
           <input type="text" id="uploadPhotoId" placeholder="IMG_1772159845123" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono" />
         </div>
 
         <div class="grid grid-cols-2 gap-2">
           <button id="btnCheckDB" class="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-semibold text-xs text-slate-300 rounded-lg transition-all cursor-pointer">
-            🔍 Check Status
+            🔍 Cek Status
           </button>
           <button id="btnUploadDB" class="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white rounded-lg transition-all cursor-pointer">
-            ⬆️ Anchor to Server
+            ⬆️ Upload ke Server
           </button>
         </div>
 
         <div id="serverStatusBox" class="bg-slate-950 border border-slate-800 rounded-lg p-3 min-h-[110px] flex items-center justify-center text-xs text-slate-500 text-center font-mono">
-          Server query responses will appear here.
+          Respon server akan muncul di sini.
         </div>
       </div>
 
@@ -83,14 +83,11 @@
     const SUPABASE_URL = 'https://mxswcmykijdnjnahhyqr.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14c3djbXlraWpkbmpuYWhoeXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NTc3NTcsImV4cCI6MjEwMDUzMzc1N30.YpofSN8iYaFYhfELXGYySGjYXr0TmiAeJVyeNCzgF7Q';
 
-    // 4 Pasangan Low-Mid Simetris
     const PAIRS = [
       [2, 1, 1, 2],
-      [3, 0, 0, 3],
-      [2, 2, 3, 1],
-      [1, 3, 3, 1]
+      [3, 0, 0, 3]
     ];
-    const SCATTER_RATIO = 0.40;
+    const SCATTER_RATIO = 0.05;
 
     const C = Array.from({ length: 8 }, () => new Float64Array(8));
     const CT = Array.from({ length: 8 }, () => new Float64Array(8));
@@ -180,11 +177,11 @@
 
     btnAudit.addEventListener('click', async function() {
       if (!auditImg) {
-        alert("Please select a JPEG image first!");
+        alert("Pilih file JPEG terlebih dahulu!");
         return;
       }
       if (!auditSeedInput.value) {
-        alert("Please enter the Master Seed!");
+        alert("Masukkan Master Seed terlebih dahulu!");
         return;
       }
 
@@ -192,10 +189,8 @@
       const rawW = auditImg.naturalWidth || auditImg.width;
       const rawH = auditImg.naturalHeight || auditImg.height;
 
-      // Evaluasi 1: Resolusi asli file
       let res1 = evaluateAudit(auditImg, rawW - (rawW % 8), rawH - (rawH % 8), inputSeed);
 
-      // Evaluasi 2: Resolusi kanvas referensi 1080p (tahan downscale WA)
       let normW = 1080;
       let normH = Math.round((normW * rawH) / rawW);
       normH = normH - (normH % 8);
@@ -209,7 +204,7 @@
           <div class="text-left space-y-1 w-full">
             <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC PROVENANCE</div>
             <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatchRate.toFixed(2)}%</strong></div>
-            <p class="text-[10px] text-slate-400">Low-Mid differential pattern verified against this Master Seed.</p>
+            <p class="text-[10px] text-slate-400">Pola terverifikasi valid dengan sebaran ringan 5%.</p>
           </div>
         `;
       } else {
@@ -217,7 +212,7 @@
           <div class="text-left space-y-1 w-full">
             <div class="text-rose-400 font-bold text-xs">🔴 TAMPERED / SEED MISMATCH</div>
             <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatchRate.toFixed(2)}%</strong> (~50% noise)</div>
-            <p class="text-[10px] text-slate-400">Signature mismatch, incorrect seed, or modified image.</p>
+            <p class="text-[10px] text-slate-400">Pola tidak cocok, seed salah, atau foto diedit.</p>
           </div>
         `;
       }
@@ -276,9 +271,9 @@
 
     btnCheckDB.addEventListener('click', async function() {
       const seed = uploadSeedInput.value.trim();
-      if (!seed) { alert("Please enter a Master Seed first!"); return; }
+      if (!seed) { alert("Masukkan Master Seed terlebih dahulu!"); return; }
 
-      serverStatusBox.innerText = "Querying Supabase database...";
+      serverStatusBox.innerText = "Memeriksa database Supabase...";
       try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/seeds?master_seed=eq.${seed}&select=*`, {
           method: 'GET',
@@ -288,30 +283,30 @@
         if (data.length > 0) {
           serverStatusBox.innerHTML = `
             <div class="text-left text-emerald-400 space-y-1 w-full">
-              <div class="font-bold">🟢 REGISTERED IN DATABASE</div>
+              <div class="font-bold">🟢 TERDAFTAR DI DATABASE</div>
               <div class="text-[10px] text-slate-300">Photo ID: ${data[0].photo_id}</div>
-              <div class="text-[10px] text-slate-300">Created: ${data[0].created_at || 'Recorded'}</div>
+              <div class="text-[10px] text-slate-300">Waktu: ${data[0].created_at || 'Terekam'}</div>
             </div>
           `;
         } else {
           serverStatusBox.innerHTML = `
             <div class="text-left text-amber-400 space-y-1 w-full">
-              <div class="font-bold">⚠️ NOT FOUND IN SERVER</div>
-              <p class="text-[10px] text-slate-400">This seed has not been registered in the database yet.</p>
+              <div class="font-bold">⚠️ BELUM TERDAFTAR</div>
+              <p class="text-[10px] text-slate-400">Master Seed ini belum pernah di-upload ke database.</p>
             </div>
           `;
         }
       } catch (err) {
-        serverStatusBox.innerText = "Database connection error: " + err.message;
+        serverStatusBox.innerText = "Gagal menghubungi server: " + err.message;
       }
     });
 
     btnUploadDB.addEventListener('click', async function() {
       const seed = uploadSeedInput.value.trim();
       const photoId = uploadPhotoId.value.trim() || ("IMG_" + seed);
-      if (!seed) { alert("Please enter a Master Seed first!"); return; }
+      if (!seed) { alert("Masukkan Master Seed terlebih dahulu!"); return; }
 
-      serverStatusBox.innerText = "Uploading to Supabase Notary...";
+      serverStatusBox.innerText = "Mengirim ke Supabase Notary...";
       try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/seeds`, {
           method: 'POST',
@@ -333,20 +328,20 @@
         if (res.ok) {
           serverStatusBox.innerHTML = `
             <div class="text-left text-emerald-400 space-y-1 w-full">
-              <div class="font-bold">🟢 UPLOAD SUCCESSFUL!</div>
-              <p class="text-[10px] text-slate-300">Master Seed <strong>${seed}</strong> is now anchored in the global notary.</p>
+              <div class="font-bold">🟢 BERHASIL DICATAT!</div>
+              <p class="text-[10px] text-slate-300">Master Seed <strong>${seed}</strong> resmi tersimpan di Notary publik.</p>
             </div>
           `;
         } else {
           serverStatusBox.innerHTML = `
             <div class="text-left text-rose-400 space-y-1 w-full">
-              <div class="font-bold">🔴 UPLOAD REJECTED (${res.status})</div>
-              <p class="text-[10px] text-slate-300">Check Supabase Table RLS permissions.</p>
+              <div class="font-bold">🔴 GAGAL MENCATAT (${res.status})</div>
+              <p class="text-[10px] text-slate-300">Periksa izin RLS Supabase.</p>
             </div>
           `;
         }
       } catch (err) {
-        serverStatusBox.innerText = "Upload failed: " + err.message;
+        serverStatusBox.innerText = "Gagal mengunggah: " + err.message;
       }
     });
   </script>
