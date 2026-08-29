@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecurePixel - Scale-Invariant WhatsApp Provenance Verifier</title>
+  <title>SecurePixel - Low-Mid Differential Provenance Verifier</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-8 flex flex-col items-center">
@@ -11,11 +11,11 @@
   <div class="w-full max-w-3xl space-y-6">
     <header class="text-center space-y-2 border-b border-slate-800 pb-5">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
-        <span>●</span> Resilient Scale-Invariant Auditor
+        <span>●</span> Low-Mid Frequency Differential Auditor
       </div>
       <h1 class="text-3xl font-extrabold text-white">SecurePixel Provenance Lab</h1>
       <p class="text-slate-400 text-xs max-w-lg mx-auto">
-        Verify hardware provenance seals on original JPEG camera captures or compressed/downscaled media from WhatsApp.
+        Verify hardware provenance on original JPEG captures or multi-compressed media from WhatsApp/Social Media.
       </p>
     </header>
 
@@ -24,7 +24,7 @@
       <!-- PANEL 1: AUDIT OFFLINE DENGAN SCALE-INVARIANT -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
         <h2 class="text-sm font-bold text-cyan-400 border-b border-slate-800 pb-2">
-          🔍 1. Forensic Audit (Original & WhatsApp)
+          🔍 1. Forensic Audit (Original & Multi-Hop WA)
         </h2>
         
         <div>
@@ -83,13 +83,14 @@
     const SUPABASE_URL = 'https://mxswcmykijdnjnahhyqr.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14c3djbXlraWpkbmpuYWhoeXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NTc3NTcsImV4cCI6MjEwMDUzMzc1N30.YpofSN8iYaFYhfELXGYySGjYXr0TmiAeJVyeNCzgF7Q';
 
+    // 4 Pasangan Low-Mid Simetris
     const PAIRS = [
-      [3, 1, 1, 3],
-      [4, 1, 1, 4],
-      [3, 2, 2, 3],
-      [2, 4, 4, 2]
+      [2, 1, 1, 2],
+      [3, 0, 0, 3],
+      [2, 2, 3, 1],
+      [1, 3, 3, 1]
     ];
-    const SCATTER_RATIO = 0.35;
+    const SCATTER_RATIO = 0.40;
 
     const C = Array.from({ length: 8 }, () => new Float64Array(8));
     const CT = Array.from({ length: 8 }, () => new Float64Array(8));
@@ -191,10 +192,10 @@
       const rawW = auditImg.naturalWidth || auditImg.width;
       const rawH = auditImg.naturalHeight || auditImg.height;
 
-      // Mode 1: Evaluate at current raw file resolution
+      // Evaluasi 1: Resolusi asli file
       let res1 = evaluateAudit(auditImg, rawW - (rawW % 8), rawH - (rawH % 8), inputSeed);
 
-      // Mode 2: Evaluate at 1080p canonical normalized canvas (for WhatsApp resized images)
+      // Evaluasi 2: Resolusi kanvas referensi 1080p (tahan downscale WA)
       let normW = 1080;
       let normH = Math.round((normW * rawH) / rawW);
       normH = normH - (normH % 8);
@@ -206,9 +207,9 @@
       if (isAuthentic) {
         auditResultBox.innerHTML = `
           <div class="text-left space-y-1 w-full">
-            <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC CAPTURE</div>
+            <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC PROVENANCE</div>
             <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatchRate.toFixed(2)}%</strong></div>
-            <p class="text-[10px] text-slate-400">Differential frequency pattern verified against this Master Seed.</p>
+            <p class="text-[10px] text-slate-400">Low-Mid differential pattern verified against this Master Seed.</p>
           </div>
         `;
       } else {
@@ -216,7 +217,7 @@
           <div class="text-left space-y-1 w-full">
             <div class="text-rose-400 font-bold text-xs">🔴 TAMPERED / SEED MISMATCH</div>
             <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatchRate.toFixed(2)}%</strong> (~50% noise)</div>
-            <p class="text-[10px] text-slate-400">Pattern mismatch, incorrect seed, or modified image.</p>
+            <p class="text-[10px] text-slate-400">Signature mismatch, incorrect seed, or modified image.</p>
           </div>
         `;
       }
