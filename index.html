@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecurePixel - 5% Lightweight Provenance Verifier</title>
+  <title>SecurePixel - Full-Res & Screenshot Provenance Verifier</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-8 flex flex-col items-center">
@@ -11,11 +11,11 @@
   <div class="w-full max-w-3xl space-y-6">
     <header class="text-center space-y-2 border-b border-slate-800 pb-5">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
-        <span>●</span> 5% Sparse Differential Auditor
+        <span>●</span> Full-Res & Screenshot Resilient Auditor
       </div>
       <h1 class="text-3xl font-extrabold text-white">SecurePixel Provenance Lab</h1>
       <p class="text-slate-400 text-xs max-w-lg mx-auto">
-        Verifikasi keaslian hardware kamera dengan sebaran ringan 5% (100% mulus tanpa bintik visual).
+        Verifikasi keaslian hardware kamera untuk foto asli full-sensor, kompresi WhatsApp, hingga tangkapan layar (screenshot).
       </p>
     </header>
 
@@ -24,12 +24,12 @@
       <!-- PANEL 1: AUDIT OFFLINE -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
         <h2 class="text-sm font-bold text-cyan-400 border-b border-slate-800 pb-2">
-          🔍 1. Forensic Audit (Original & Multi-Hop WA)
+          🔍 1. Forensic Audit
         </h2>
         
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih File JPEG (.jpg):</label>
-          <input type="file" id="auditFileInput" accept="image/jpeg,image/jpg" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-cyan-400 hover:file:bg-slate-700 cursor-pointer border border-slate-700 rounded-lg p-1 bg-slate-950" />
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih File Foto / Screenshot:</label>
+          <input type="file" id="auditFileInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-cyan-400 hover:file:bg-slate-700 cursor-pointer border border-slate-700 rounded-lg p-1 bg-slate-950" />
         </div>
 
         <div>
@@ -177,7 +177,7 @@
 
     btnAudit.addEventListener('click', async function() {
       if (!auditImg) {
-        alert("Pilih file JPEG terlebih dahulu!");
+        alert("Pilih file gambar terlebih dahulu!");
         return;
       }
       if (!auditSeedInput.value) {
@@ -189,41 +189,55 @@
       const rawW = auditImg.naturalWidth || auditImg.width;
       const rawH = auditImg.naturalHeight || auditImg.height;
 
-      let res1 = evaluateAudit(auditImg, rawW - (rawW % 8), rawH - (rawH % 8), inputSeed);
+      // Evaluasi 1: Ukuran Asli
+      let bestMatch = evaluateAudit(auditImg, rawW - (rawW % 8), rawH - (rawH % 8), inputSeed, 0, 0);
 
+      // Evaluasi 2: Normalisasi 1080p (WhatsApp Downscale)
       let normW = 1080;
       let normH = Math.round((normW * rawH) / rawW);
       normH = normH - (normH % 8);
-      let res2 = evaluateAudit(auditImg, normW, normH, inputSeed);
+      let matchNorm = evaluateAudit(auditImg, normW, normH, inputSeed, 0, 0);
+      if (matchNorm > bestMatch) bestMatch = matchNorm;
 
-      const bestMatchRate = Math.max(res1, res2);
-      const isAuthentic = bestMatchRate >= 60.0;
+      // Evaluasi 3: Auto-Offset Search (Penyelamat Screenshot jika ada geser piksel layar)
+      if (bestMatch < 60.0) {
+        for (let ox = 0; ox < 8; ox += 2) {
+          for (let oy = 0; oy < 8; oy += 2) {
+            let score = evaluateAudit(auditImg, rawW - 8, rawH - 8, inputSeed, ox, oy);
+            if (score > bestMatch) bestMatch = score;
+            if (bestMatch >= 65.0) break;
+          }
+          if (bestMatch >= 65.0) break;
+        }
+      }
+
+      const isAuthentic = bestMatch >= 60.0;
 
       if (isAuthentic) {
         auditResultBox.innerHTML = `
           <div class="text-left space-y-1 w-full">
             <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC PROVENANCE</div>
-            <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatchRate.toFixed(2)}%</strong></div>
-            <p class="text-[10px] text-slate-400">Pola terverifikasi valid dengan sebaran ringan 5%.</p>
+            <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatch.toFixed(2)}%</strong></div>
+            <p class="text-[10px] text-slate-400">Pola frekuensi terbukti asli & valid pada seed ini.</p>
           </div>
         `;
       } else {
         auditResultBox.innerHTML = `
           <div class="text-left space-y-1 w-full">
             <div class="text-rose-400 font-bold text-xs">🔴 TAMPERED / SEED MISMATCH</div>
-            <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatchRate.toFixed(2)}%</strong> (~50% noise)</div>
+            <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatch.toFixed(2)}%</strong> (~50% acak)</div>
             <p class="text-[10px] text-slate-400">Pola tidak cocok, seed salah, atau foto diedit.</p>
           </div>
         `;
       }
     });
 
-    function evaluateAudit(imageObj, targetW, targetH, seedStr) {
+    function evaluateAudit(imageObj, targetW, targetH, seedStr, offsetX = 0, offsetY = 0) {
       const canvas = document.createElement('canvas');
       canvas.width = targetW;
       canvas.height = targetH;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(imageObj, 0, 0, targetW, targetH);
+      ctx.drawImage(imageObj, -offsetX, -offsetY, targetW + offsetX, targetH + offsetY);
 
       const imgData = ctx.getImageData(0, 0, targetW, targetH);
       const data = imgData.data;
@@ -242,8 +256,9 @@
           if (rng() > SCATTER_RATIO) continue;
 
           for (let y = 0; y < 8; y++) {
+            let rowIdx = ((by + y) * targetW + bx) * 4;
             for (let x = 0; x < 8; x++) {
-              let idx = ((by + y) * targetW + (bx + x)) * 4;
+              let idx = rowIdx + (x * 4);
               blockY[y * 8 + x] = (0.299 * data[idx] + 0.587 * data[idx+1] + 0.114 * data[idx+2]) - 128.0;
             }
           }
