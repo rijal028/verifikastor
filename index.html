@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecurePixel - Full-Res & Screenshot Provenance Verifier</title>
+  <title>SecurePixel - Robust Provenance Verifier</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-8 flex flex-col items-center">
@@ -11,11 +11,11 @@
   <div class="w-full max-w-3xl space-y-6">
     <header class="text-center space-y-2 border-b border-slate-800 pb-5">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
-        <span>●</span> Full-Res & Screenshot Resilient Auditor
+        <span>●</span> Robust Block-Independent Auditor
       </div>
       <h1 class="text-3xl font-extrabold text-white">SecurePixel Provenance Lab</h1>
       <p class="text-slate-400 text-xs max-w-lg mx-auto">
-        Verifikasi keaslian hardware kamera untuk foto asli full-sensor, kompresi WhatsApp, hingga tangkapan layar (screenshot).
+        Verifikasi keaslian hardware kamera 2MB+ tahan rotasi, kompresi WhatsApp, dan tangkapan layar.
       </p>
     </header>
 
@@ -87,7 +87,7 @@
       [2, 1, 1, 2],
       [3, 0, 0, 3]
     ];
-    const SCATTER_RATIO = 0.05;
+    const SCATTER_RATIO = 0.10;
 
     const C = Array.from({ length: 8 }, () => new Float64Array(8));
     const CT = Array.from({ length: 8 }, () => new Float64Array(8));
@@ -126,22 +126,21 @@
       }
     }
 
-    function createPRNG(seed) {
-      let state = Number(BigInt(seed) % 2147483647n);
+    function getBlockSeed(masterSeedStr, bx, by) {
+      let m = BigInt(masterSeedStr) ^ 0x5DEECE66Dn;
+      let h = (m * 31n + BigInt(bx)) ^ 0x4B3A2C1Dn;
+      h = (h * 31n + BigInt(by)) ^ 0x1E2D3C4Bn;
+      if (h < 0n) h = -h;
+      return h;
+    }
+
+    function createPRNG(seedBigInt) {
+      let state = Number(seedBigInt % 2147483647n);
       if (state <= 0) state += 2147483646;
       return function() {
         state = (state * 16807) % 2147483647;
         return (state - 1) / 2147483646;
       };
-    }
-
-    function deriveSubSeed(masterSeed, key) {
-      const str = masterSeed + "_" + key;
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        hash = (Math.imul(31, hash) + str.charCodeAt(i)) | 0;
-      }
-      return Math.abs(hash);
     }
 
     let auditImg = null;
@@ -189,25 +188,18 @@
       const rawW = auditImg.naturalWidth || auditImg.width;
       const rawH = auditImg.naturalHeight || auditImg.height;
 
-      // Evaluasi 1: Ukuran Asli
+      // 1. Audit Resolusi Asli
       let bestMatch = evaluateAudit(auditImg, rawW - (rawW % 8), rawH - (rawH % 8), inputSeed, 0, 0);
 
-      // Evaluasi 2: Normalisasi 1080p (WhatsApp Downscale)
-      let normW = 1080;
-      let normH = Math.round((normW * rawH) / rawW);
-      normH = normH - (normH % 8);
-      let matchNorm = evaluateAudit(auditImg, normW, normH, inputSeed, 0, 0);
-      if (matchNorm > bestMatch) bestMatch = matchNorm;
-
-      // Evaluasi 3: Auto-Offset Search (Penyelamat Screenshot jika ada geser piksel layar)
-      if (bestMatch < 60.0) {
+      // 2. Audit Auto-Offset (untuk Screenshot / Pergeseran piksel)
+      if (bestMatch < 65.0) {
         for (let ox = 0; ox < 8; ox += 2) {
           for (let oy = 0; oy < 8; oy += 2) {
             let score = evaluateAudit(auditImg, rawW - 8, rawH - 8, inputSeed, ox, oy);
             if (score > bestMatch) bestMatch = score;
-            if (bestMatch >= 65.0) break;
+            if (bestMatch >= 70.0) break;
           }
-          if (bestMatch >= 65.0) break;
+          if (bestMatch >= 70.0) break;
         }
       }
 
@@ -242,9 +234,6 @@
       const imgData = ctx.getImageData(0, 0, targetW, targetH);
       const data = imgData.data;
 
-      const subSeed = deriveSubSeed(seedStr, "PHOTO_DCT");
-      const rng = createPRNG(subSeed);
-
       const blockY = new Float64Array(64);
       const dct = new Float64Array(64);
 
@@ -253,6 +242,9 @@
 
       for (let by = 0; by < targetH; by += 8) {
         for (let bx = 0; bx < targetW; bx += 8) {
+          const blockSeed = getBlockSeed(seedStr, Math.floor(bx / 8), Math.floor(by / 8));
+          const rng = createPRNG(blockSeed);
+
           if (rng() > SCATTER_RATIO) continue;
 
           for (let y = 0; y < 8; y++) {
