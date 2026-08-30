@@ -11,11 +11,11 @@
   <div class="w-full max-w-3xl space-y-6">
     <header class="text-center space-y-2 border-b border-slate-800 pb-5">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
-        <span>●</span> Adaptive Multi-Scale Auditor
+        <span>●</span> Provenance Differential Auditor
       </div>
       <h1 class="text-3xl font-extrabold text-white">SecurePixel Provenance Lab</h1>
       <p class="text-slate-400 text-xs max-w-lg mx-auto">
-        Verifikasi keaslian hardware kamera pada foto resolusi penuh (3.5MB+), WhatsApp Standard & HD, serta tangkapan layar.
+        Verifikasi keaslian hardware kamera pada foto asli, kompresi WhatsApp, dan media sosial.
       </p>
     </header>
 
@@ -28,7 +28,7 @@
         </h2>
         
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih File Foto / WhatsApp / SS:</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih File Foto / Screenshot / WA:</label>
           <input type="file" id="auditFileInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-cyan-400 hover:file:bg-slate-700 cursor-pointer border border-slate-700 rounded-lg p-1 bg-slate-950" />
         </div>
 
@@ -83,7 +83,6 @@
     const SUPABASE_URL = 'https://mxswcmykijdnjnahhyqr.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14c3djbXlraWpkbmpuYWhoeXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NTc3NTcsImV4cCI6MjEwMDUzMzc1N30.YpofSN8iYaFYhfELXGYySGjYXr0TmiAeJVyeNCzgF7Q';
 
-    // Parameter Identik Flutter / Kotlin Native
     const PAIRS = [
       [2, 1, 1, 2],
       [3, 0, 0, 3]
@@ -110,14 +109,18 @@
       for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
           let sum = 0.0;
-          for (let k = 0; k < 8; k++) sum += C[i][k] * block[k * 8 + j];
+          for (let k = 0; k < 8; k++) {
+            sum += C[i][k] * block[k * 8 + j];
+          }
           temp[i * 8 + j] = sum;
         }
       }
       for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
           let sum = 0.0;
-          for (let k = 0; k < 8; k++) sum += temp[i * 8 + k] * CT[k][j];
+          for (let k = 0; k < 8; k++) {
+            sum += temp[i * 8 + k] * CT[k][j];
+          }
           out[i * 8 + j] = sum;
         }
       }
@@ -182,47 +185,19 @@
         return;
       }
 
-      auditResultBox.innerText = "Menganalisis frekuensi multi-skala...";
-
       const inputSeed = auditSeedInput.value.trim();
       const rawW = auditImg.naturalWidth || auditImg.width;
       const rawH = auditImg.naturalHeight || auditImg.height;
 
-      let bestMatch = 0;
-      let matchedResolution = "";
+      // 1. Cek ukuran asli
+      let bestMatch = evaluateAudit(auditImg, rawW - (rawW % 8), rawH - (rawH % 8), inputSeed);
 
-      // 1. Cek Resolusi Asli Gambar
-      const origW = rawW - (rawW % 8);
-      const origH = rawH - (rawH % 8);
-      let scoreOrig = evaluateAudit(auditImg, origW, origH, inputSeed);
-      if (scoreOrig > bestMatch) {
-        bestMatch = scoreOrig;
-        matchedResolution = `${origW}x${origH} (Native)`;
-      }
-
-      // 2. Cek Skala WhatsApp Umum (1600px, 2048px HD, 1280px, 1080px)
-      if (bestMatch < 65.0) {
-        const targetScales = [1600, 2048, 1280, 1080, 800];
-        for (let scale of targetScales) {
-          let sW, sH;
-          if (rawW >= rawH) {
-            sW = scale;
-            sH = Math.round((scale * rawH) / rawW);
-          } else {
-            sH = scale;
-            sW = Math.round((scale * rawW) / rawH);
-          }
-          sW -= (sW % 8);
-          sH -= (sH % 8);
-
-          let sScore = evaluateAudit(auditImg, sW, sH, inputSeed);
-          if (sScore > bestMatch) {
-            bestMatch = sScore;
-            matchedResolution = `${sW}x${sH} (Compressed)`;
-          }
-          if (bestMatch >= 65.0) break;
-        }
-      }
+      // 2. Cek ukuran normalisasi WhatsApp (1080x1920)
+      let normW = 1080;
+      let normH = Math.round((normW * rawH) / rawW);
+      normH = normH - (normH % 8);
+      let matchNorm = evaluateAudit(auditImg, normW, normH, inputSeed);
+      if (matchNorm > bestMatch) bestMatch = matchNorm;
 
       const isAuthentic = bestMatch >= 60.0;
 
@@ -231,8 +206,7 @@
           <div class="text-left space-y-1 w-full">
             <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC PROVENANCE</div>
             <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatch.toFixed(2)}%</strong></div>
-            <div class="text-[10px] text-slate-300">Resolusi Terverifikasi: ${matchedResolution}</div>
-            <p class="text-[10px] text-slate-400">Pola frekuensi asli terbukti valid.</p>
+            <p class="text-[10px] text-slate-400">Pola frekuensi asli terverifikasi valid.</p>
           </div>
         `;
       } else {
@@ -240,7 +214,7 @@
           <div class="text-left space-y-1 w-full">
             <div class="text-rose-400 font-bold text-xs">🔴 TAMPERED / SEED MISMATCH</div>
             <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatch.toFixed(2)}%</strong> (~50% acak)</div>
-            <p class="text-[10px] text-slate-400">Pola tidak cocok, seed salah, atau foto diedit.</p>
+            <p class="text-[10px] text-slate-400">Pola tidak cocok atau seed salah.</p>
           </div>
         `;
       }
