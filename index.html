@@ -11,7 +11,7 @@
   <div class="w-full max-w-3xl space-y-6">
     <header class="text-center space-y-2 border-b border-slate-800 pb-5">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
-        <span>●</span> Provenance Differential Auditor
+        <span>●</span> Synchronized Differential Auditor
       </div>
       <h1 class="text-3xl font-extrabold text-white">SecurePixel Provenance Lab</h1>
       <p class="text-slate-400 text-xs max-w-lg mx-auto">
@@ -189,10 +189,16 @@
       const rawW = auditImg.naturalWidth || auditImg.width;
       const rawH = auditImg.naturalHeight || auditImg.height;
 
-      // 1. Cek ukuran asli
+      // 1. Cek ukuran asli normal
       let bestMatch = evaluateAudit(auditImg, rawW - (rawW % 8), rawH - (rawH % 8), inputSeed);
 
-      // 2. Cek ukuran normalisasi WhatsApp
+      // 2. Cek ukuran jika dimensi tertukar (Landscape/Portrait fallback)
+      if (bestMatch < 65.0) {
+        let matchSwap = evaluateAudit(auditImg, rawH - (rawH % 8), rawW - (rawW % 8), inputSeed);
+        if (matchSwap > bestMatch) bestMatch = matchSwap;
+      }
+
+      // 3. Cek ukuran normalisasi 1080p (WhatsApp)
       let normW = 1080;
       let normH = Math.round((normW * rawH) / rawW);
       normH = normH - (normH % 8);
