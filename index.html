@@ -11,11 +11,11 @@
   <div class="w-full max-w-3xl space-y-6">
     <header class="text-center space-y-2 border-b border-slate-800 pb-5">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
-        <span>●</span> Provenance Differential Auditor
+        <span>●</span> Synchronized Differential Auditor
       </div>
       <h1 class="text-3xl font-extrabold text-white">SecurePixel Provenance Lab</h1>
       <p class="text-slate-400 text-xs max-w-lg mx-auto">
-        Verifikasi keaslian hardware kamera pada foto asli, kompresi WhatsApp, dan media sosial.
+        Verifikasi keaslian hardware kamera instan pada foto resolusi penuh (3MB+), WhatsApp, dan screenshot.
       </p>
     </header>
 
@@ -28,7 +28,7 @@
         </h2>
         
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih File Foto / Screenshot / WA:</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih File Foto / WhatsApp / SS:</label>
           <input type="file" id="auditFileInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-cyan-400 hover:file:bg-slate-700 cursor-pointer border border-slate-700 rounded-lg p-1 bg-slate-950" />
         </div>
 
@@ -83,11 +83,7 @@
     const SUPABASE_URL = 'https://mxswcmykijdnjnahhyqr.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14c3djbXlraWpkbmpuYWhoeXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NTc3NTcsImV4cCI6MjEwMDUzMzc1N30.YpofSN8iYaFYhfELXGYySGjYXr0TmiAeJVyeNCzgF7Q';
 
-    const PAIRS = [
-      [2, 1, 1, 2],
-      [3, 0, 0, 3]
-    ];
-    const SCATTER_RATIO = 0.05;
+    const SCATTER_RATIO = 0.06;
 
     const C = Array.from({ length: 8 }, () => new Float64Array(8));
     const CT = Array.from({ length: 8 }, () => new Float64Array(8));
@@ -109,18 +105,14 @@
       for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
           let sum = 0.0;
-          for (let k = 0; k < 8; k++) {
-            sum += C[i][k] * block[k * 8 + j];
-          }
+          for (let k = 0; k < 8; k++) sum += C[i][k] * block[k * 8 + j];
           temp[i * 8 + j] = sum;
         }
       }
       for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
           let sum = 0.0;
-          for (let k = 0; k < 8; k++) {
-            sum += temp[i * 8 + k] * CT[k][j];
-          }
+          for (let k = 0; k < 8; k++) sum += temp[i * 8 + k] * CT[k][j];
           out[i * 8 + j] = sum;
         }
       }
@@ -185,19 +177,16 @@
         return;
       }
 
+      auditResultBox.innerText = "Memverifikasi frekuensi forensik...";
+
       const inputSeed = auditSeedInput.value.trim();
       const rawW = auditImg.naturalWidth || auditImg.width;
       const rawH = auditImg.naturalHeight || auditImg.height;
 
-      // 1. Cek ukuran asli
-      let bestMatch = evaluateAudit(auditImg, rawW - (rawW % 8), rawH - (rawH % 8), inputSeed);
+      const origW = rawW - (rawW % 8);
+      const origH = rawH - (rawH % 8);
 
-      // 2. Cek ukuran normalisasi WhatsApp (1080x1920)
-      let normW = 1080;
-      let normH = Math.round((normW * rawH) / rawW);
-      normH = normH - (normH % 8);
-      let matchNorm = evaluateAudit(auditImg, normW, normH, inputSeed);
-      if (matchNorm > bestMatch) bestMatch = matchNorm;
+      let bestMatch = evaluateAudit(auditImg, origW, origH, inputSeed);
 
       const isAuthentic = bestMatch >= 60.0;
 
@@ -206,7 +195,7 @@
           <div class="text-left space-y-1 w-full">
             <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC PROVENANCE</div>
             <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatch.toFixed(2)}%</strong></div>
-            <p class="text-[10px] text-slate-400">Pola frekuensi asli terverifikasi valid.</p>
+            <p class="text-[10px] text-slate-400">Pola frekuensi terbukti asli & tersinkronisasi.</p>
           </div>
         `;
       } else {
@@ -241,29 +230,40 @@
 
       for (let by = 0; by < targetH; by += 8) {
         for (let bx = 0; bx < targetW; bx += 8) {
-          if (rng() > SCATTER_RATIO) continue;
+          const isSelected = rng() <= SCATTER_RATIO;
 
+          let blockSumY = 0.0;
           for (let y = 0; y < 8; y++) {
             let rowIdx = ((by + y) * targetW + bx) * 4;
             for (let x = 0; x < 8; x++) {
               let idx = rowIdx + (x * 4);
-              blockY[y * 8 + x] = (0.299 * data[idx] + 0.587 * data[idx+1] + 0.114 * data[idx+2]) - 128.0;
+              let yVal = 0.299 * data[idx] + 0.587 * data[idx+1] + 0.114 * data[idx+2];
+              blockSumY += yVal;
+              blockY[y * 8 + x] = yVal - 128.0;
             }
           }
 
+          const expectedBit1 = rng() > 0.5 ? 1 : 0;
+          const expectedBit2 = rng() > 0.5 ? 1 : 0;
+
+          if (!isSelected) continue;
+
+          const avgLuma = blockSumY / 64.0;
+          if (avgLuma < 25.0 || avgLuma > 230.0) continue;
+
           fastForwardDCT(blockY, dct);
 
-          for (let i = 0; i < PAIRS.length; i++) {
-            const p = PAIRS[i];
-            const idxA = p[0] * 8 + p[1];
-            const idxB = p[2] * 8 + p[3];
-            const expectedBit = rng() > 0.5 ? 1 : 0;
+          // Test Pair 1
+          {
+            const actualBit1 = dct[2 * 8 + 1] > dct[1 * 8 + 2] ? 1 : 0;
+            if (actualBit1 === expectedBit1) matchedCorrelation++;
+            totalTested++;
+          }
 
-            const actualBit = dct[idxA] > dct[idxB] ? 1 : 0;
-
-            if (actualBit === expectedBit) {
-              matchedCorrelation++;
-            }
+          // Test Pair 2
+          {
+            const actualBit2 = dct[3 * 8 + 0] > dct[0 * 8 + 3] ? 1 : 0;
+            if (actualBit2 === expectedBit2) matchedCorrelation++;
             totalTested++;
           }
         }
