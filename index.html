@@ -132,7 +132,6 @@
                 let blockSumLuma = 0.0;
 
                 if (!isDownscaled) {
-                    // Exact 1:1 Pixel Mapping for Native Captures
                     for (let y = 0; y < BLOCK_SIZE; y++) {
                         const rowIdx = ((by + y) * width + bx) * 4;
                         for (let x = 0; x < BLOCK_SIZE; x++) {
@@ -143,7 +142,6 @@
                         }
                     }
                 } else {
-                    // Area/Box-Integral Sampling for Downscaled & Highly Compressed Images
                     for (let y = 0; y < BLOCK_SIZE; y++) {
                         const startY = (by + y) * scaleY;
                         const endY = (by + y + 1) * scaleY;
@@ -243,40 +241,38 @@
 
                 const rawData = ctx.getImageData(0, 0, nativeWidth, nativeHeight).data;
 
-                const maxDim = Math.max(nativeWidth, nativeHeight);
-                const isNativeDimension = (nativeWidth >= 2000 || nativeHeight >= 2000);
+                // Cek dimensi native murni kamera HP (2944x2944 atau 2560x1920)
+                const isExactNativeCapture = (nativeWidth === 2944 && nativeHeight === 2944) || 
+                                             (nativeWidth === 2560 && nativeHeight === 1920) || 
+                                             (nativeWidth === 1920 && nativeHeight === 2560);
+                
                 let res, mode, threshold;
 
-                if (isNativeDimension) {
+                if (isExactNativeCapture) {
                     const targetWidth = nativeWidth - (nativeWidth % BLOCK_SIZE);
                     const targetHeight = nativeHeight - (nativeHeight % BLOCK_SIZE);
                     res = auditImage(rawData, nativeWidth, nativeHeight, targetWidth, targetHeight, seedVal, false);
                     mode = `Original Native Capture (${nativeWidth}x${nativeHeight}) [${targetWidth/16}x${targetHeight/16} Macroblocks]`;
                     threshold = 85.0;
                 } else {
-                    // Downscaled (WhatsApp, Facebook, Instagram, etc.)
+                    // Semua file unduhan sosial media (FB 2048px, WA 1472px, IG, dll.)
                     const aspectRatio = nativeWidth / nativeHeight;
                     let canonicalWidth, canonicalHeight;
 
                     if (Math.abs(aspectRatio - 1.0) <= 0.08) {
-                        // Square Aspect Ratio (1:1) -> Sensor Native 2944 x 2944
                         canonicalWidth = 2944;
                         canonicalHeight = 2944;
                     } else if (nativeWidth > nativeHeight) {
-                        // 4:3 Landscape -> Sensor Native 2560 x 1920
                         canonicalWidth = 2560;
                         canonicalHeight = 1920;
                     } else {
-                        // 4:3 Portrait -> Sensor Native 1920 x 2560
                         canonicalWidth = 1920;
                         canonicalHeight = 2560;
                     }
 
                     res = auditImage(rawData, nativeWidth, nativeHeight, canonicalWidth, canonicalHeight, seedVal, true);
                     mode = `Compressed Social Media (${nativeWidth}x${nativeHeight} &rarr; Canonical ${canonicalWidth}x${canonicalHeight} [${canonicalWidth/16}x${canonicalHeight/16} Macroblocks])`;
-                    
-                    // Dynamic threshold: Extremely low resolutions (e.g. Facebook 526px) have lower energy retention
-                    threshold = maxDim < 800 ? 60.0 : 68.0;
+                    threshold = 68.0;
                 }
 
                 resultBox.style.display = 'block';
