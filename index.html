@@ -48,7 +48,7 @@
 <script>
     const SCATTER_RATIO = 0.06;
 
-    // Matriks DCT 8x8
+    // Inisialisasi Matriks DCT 8x8
     const C = Array.from({length: 8}, () => new Float64Array(8));
     const CT = Array.from({length: 8}, () => new Float64Array(8));
     const invSqrt2 = 1.0 / Math.sqrt(2.0);
@@ -100,7 +100,6 @@
         }
     }
 
-    // Ekstraksi nilai Luma (Y) langsung dari pixel mentah
     function getLumaAt(data, width, height, x, y) {
         const px = Math.max(0, Math.min(width - 1, Math.floor(x)));
         const py = Math.max(0, Math.min(height - 1, Math.floor(y)));
@@ -114,6 +113,7 @@
 
         let totalAudited = 0;
         let matchedBits = 0;
+        let totalGapEnergy = 0.0;
 
         const blockY = new Float64Array(64);
         const dct = new Float64Array(64);
@@ -128,7 +128,7 @@
                 let blockSumY = 0.0;
 
                 if (!isDownscaled) {
-                    // Jalur Cepat 1:1 untuk Foto Asli
+                    // Jalur 1:1 Presisi Foto Asli
                     for (let y = 0; y < 8; y++) {
                         const rowIdx = ((by + y) * width + bx) * 4;
                         for (let x = 0; x < 8; x++) {
@@ -139,7 +139,7 @@
                         }
                     }
                 } else {
-                    // Jalur Rekonstruksi Area untuk Gambar Terkompresi
+                    // Jalur Rekonstruksi Area untuk Gambar WhatsApp
                     for (let y = 0; y < 8; y++) {
                         const sampleY = (by + y + 0.5) * scaleY;
                         for (let x = 0; x < 8; x++) {
@@ -162,22 +162,29 @@
                 fastForwardDCT(blockY, dct);
 
                 // Evaluasi Pair 1: (2,1) vs (1,2)
-                const bit1 = dct[2 * 8 + 1] > dct[1 * 8 + 2] ? 1 : 0;
+                const c1 = dct[2 * 8 + 1];
+                const c2 = dct[1 * 8 + 2];
+                const diff1 = c1 - c2;
+                const bit1 = diff1 > 0 ? 1 : 0;
                 if (bit1 === expectedBit1) matchedBits++;
+                totalGapEnergy += Math.abs(diff1);
                 totalAudited++;
 
                 // Evaluasi Pair 2: (3,0) vs (0,3)
-                const bit2 = dct[3 * 8 + 0] > dct[0 * 8 + 3] ? 1 : 0;
+                const c3 = dct[3 * 8 + 0];
+                const c4 = dct[0 * 8 + 3];
+                const diff2 = c3 - c4;
+                const bit2 = diff2 > 0 ? 1 : 0;
                 if (bit2 === expectedBit2) matchedBits++;
+                totalGapEnergy += Math.abs(diff2);
                 totalAudited++;
             }
         }
 
-        return {
-            matchRate: totalAudited > 0 ? (matchedBits / totalAudited) * 100 : 0,
-            totalAudited,
-            matchedBits
-        };
+        const avgGap = totalAudited > 0 ? (totalGapEnergy / totalAudited) : 0;
+        const matchRate = totalAudited > 0 ? (matchedBits / totalAudited) * 100 : 0;
+
+        return { matchRate, totalAudited, matchedBits, avgGap };
     }
 
     function verifyImage() {
@@ -206,31 +213,29 @@
                 canvas.height = nh;
                 ctx.drawImage(img, 0, 0, nw, nh);
 
-                const imgData = ctx.getImageData(0, 0, nw, nh);
-                const rawData = imgData.data;
+                const rawData = ctx.getImageData(0, 0, nw, nh).data;
 
-                // 1. Coba verifikasi native 1:1 langsung
-                const targetW = nw - (nw % 16);
-                const targetH = nh - (nh % 16);
-                let res = auditImage(rawData, nw, nh, targetW, targetH, seedVal, false);
-                let mode = `Native Capture (${nw}x${nh})`;
+                // Klasifikasi jalur berdasarkan dimensi aktual
+                const isNativeDimension = (nw >= 1900 && nh >= 1900);
+                let res, mode, threshold;
 
-                // 2. Jika match rate rendah (indikasi downscaled WA), uji dengan grid kanonikal 4:3
-                if (res.matchRate < 70.0) {
+                if (isNativeDimension) {
+                    const targetW = nw - (nw % 16);
+                    const targetH = nh - (nh % 16);
+                    res = auditImage(rawData, nw, nh, targetW, targetH, seedVal, false);
+                    mode = `Original Native (${nw}x${nh})`;
+                    threshold = 80.0;
+                } else {
                     const isPortrait = nh > nw;
                     const canW = isPortrait ? 1920 : 2560;
                     const canH = isPortrait ? 2560 : 1920;
-
-                    const resCompressed = auditImage(rawData, nw, nh, canW, canH, seedVal, true);
-                    if (resCompressed.matchRate > res.matchRate) {
-                        res = resCompressed;
-                        mode = `Compressed/WhatsApp (${nw}x${nh} &rarr; Grid ${canW}x${canH})`;
-                    }
+                    res = auditImage(rawData, nw, nh, canW, canH, seedVal, true);
+                    mode = `WhatsApp Compressed (${nw}x${nh} &rarr; Target Grid ${canW}x${canH})`;
+                    threshold = 68.0;
                 }
 
                 resultBox.style.display = 'block';
 
-                const threshold = 65.0; // Ambang batas toleransi re-encoding lossy
                 if (res.matchRate >= threshold) {
                     resultBox.className = "result-box valid";
                     resultTitle.innerHTML = `🟢 AUTHENTIC / VERIFIED (${res.matchRate.toFixed(2)}%)`;
@@ -240,10 +245,10 @@
                 }
 
                 resultMeta.innerHTML = `
-                    <b>Mode Deteksi:</b> ${mode}<br>
-                    <b>Total Bit Diaudit:</b> ${res.totalAudited.toLocaleString()} bit<br>
-                    <b>Bit Cocok:</b> ${res.matchedBits.toLocaleString()} bit<br>
-                    <b>Ambang Batas Keaslian:</b> &ge; ${threshold.toFixed(2)}% (Baseline Acak = 50.00%)
+                    <b>Sumber Terdeteksi:</b> ${mode}<br>
+                    <b>Rata-rata Selisih Gap:</b> ${res.avgGap.toFixed(2)} (Target Asli: 28.0)<br>
+                    <b>Bit Cocok:</b> ${res.matchedBits.toLocaleString()} / ${res.totalAudited.toLocaleString()} bit<br>
+                    <b>Ambang Batas Minimum:</b> &ge; ${threshold.toFixed(2)}% (Baseline Acak = 50.00%)
                 `;
             };
             img.src = e.target.result;
