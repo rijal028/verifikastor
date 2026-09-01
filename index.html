@@ -1,352 +1,206 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecurePixel - Provenance Verifier</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecurePixel Provenance Verifier</title>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 600px; width: 100%; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        h1 { font-size: 1.4rem; margin-top: 0; color: #38bdf8; text-align: center; }
+        .input-group { margin-bottom: 16px; }
+        label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; }
+        input[type="text"], input[type="file"] { width: 100%; padding: 10px; background-color: #0f172a; border: 1px solid #475569; border-radius: 6px; color: #fff; }
+        button { width: 100%; padding: 12px; background-color: #0284c7; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #0369a1; }
+        .result-box { margin-top: 20px; padding: 16px; border-radius: 8px; display: none; }
+        .valid { background-color: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; }
+        .invalid { background-color: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; }
+        .meta-info { font-size: 0.85rem; color: #94a3b8; margin-top: 8px; line-height: 1.5; }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-8 flex flex-col items-center">
+<body>
 
-  <div class="w-full max-w-3xl space-y-6">
-    <header class="text-center space-y-2 border-b border-slate-800 pb-5">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
-        <span>●</span> Synchronized Differential Auditor
-      </div>
-      <h1 class="text-3xl font-extrabold text-white">SecurePixel Provenance Lab</h1>
-      <p class="text-slate-400 text-xs max-w-lg mx-auto">
-        Verifikasi keaslian hardware kamera instan pada foto resolusi penuh (3MB+), WhatsApp, dan screenshot.
-      </p>
-    </header>
-
-    <div class="grid md:grid-cols-2 gap-6">
-      
-      <!-- PANEL 1: AUDIT OFFLINE -->
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-        <h2 class="text-sm font-bold text-cyan-400 border-b border-slate-800 pb-2">
-          🔍 1. Forensic Audit
-        </h2>
-        
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih File Foto / WhatsApp / SS:</label>
-          <input type="file" id="auditFileInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-cyan-400 hover:file:bg-slate-700 cursor-pointer border border-slate-700 rounded-lg p-1 bg-slate-950" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Master Seed (Timestamp):</label>
-          <input type="number" id="auditSeedInput" placeholder="Otomatis terbaca dari nama file atau ketik manual" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono" />
-        </div>
-
-        <button id="btnAudit" class="w-full py-2.5 px-4 bg-cyan-500 hover:bg-cyan-400 font-bold text-xs tracking-wider uppercase text-slate-950 rounded-lg transition-all cursor-pointer">
-          Jalankan Audit Forensik
-        </button>
-
-        <div id="auditResultBox" class="bg-slate-950 border border-slate-800 rounded-lg p-3 min-h-[110px] flex items-center justify-center text-xs text-slate-500 text-center font-mono">
-          Hasil audit akan muncul di sini.
-        </div>
-      </div>
-
-      <!-- PANEL 2: NOTARY REGISTRY -->
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-        <h2 class="text-sm font-bold text-emerald-400 border-b border-slate-800 pb-2">
-          ⚡ 2. Global Notary Registry
-        </h2>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Master Seed untuk Dicatat:</label>
-          <input type="number" id="uploadSeedInput" placeholder="Masukkan Master Seed" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Label Foto / ID:</label>
-          <input type="text" id="uploadPhotoId" placeholder="IMG_1772159845123" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono" />
-        </div>
-
-        <div class="grid grid-cols-2 gap-2">
-          <button id="btnCheckDB" class="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 font-semibold text-xs text-slate-300 rounded-lg transition-all cursor-pointer">
-            🔍 Cek Status
-          </button>
-          <button id="btnUploadDB" class="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white rounded-lg transition-all cursor-pointer">
-            ⬆️ Upload ke Server
-          </button>
-        </div>
-
-        <div id="serverStatusBox" class="bg-slate-950 border border-slate-800 rounded-lg p-3 min-h-[110px] flex items-center justify-center text-xs text-slate-500 text-center font-mono">
-          Respon server akan muncul di sini.
-        </div>
-      </div>
-
+<div class="card">
+    <h1>SecurePixel Authenticity Verifier</h1>
+    
+    <div class="input-group">
+        <label for="seedInput">Master Seed (Timestamp):</label>
+        <input type="text" id="seedInput" placeholder="Contoh: 1725166800000">
     </div>
-  </div>
 
-  <script>
-    const SUPABASE_URL = 'https://mxswcmykijdnjnahhyqr.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14c3djbXlraWpkbmpuYWhoeXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NTc3NTcsImV4cCI6MjEwMDUzMzc1N30.YpofSN8iYaFYhfELXGYySGjYXr0TmiAeJVyeNCzgF7Q';
+    <div class="input-group">
+        <label for="imageInput">Pilih Foto (Original atau WhatsApp):</label>
+        <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp">
+    </div>
 
+    <button onclick="verifyImage()">Verifikasi Keaslian</button>
+
+    <div id="resultBox" class="result-box">
+        <div id="resultTitle" style="font-weight: bold; font-size: 1.1rem;"></div>
+        <div id="resultMeta" class="meta-info"></div>
+    </div>
+</div>
+
+<canvas id="canvas" style="display: none;"></canvas>
+
+<script>
+    const TARGET_BASE_W = 2560;
+    const TARGET_BASE_H = 1920;
     const SCATTER_RATIO = 0.06;
 
-    const C = Array.from({ length: 8 }, () => new Float64Array(8));
-    const CT = Array.from({ length: 8 }, () => new Float64Array(8));
+    const C = Array.from({length: 8}, () => new Float64Array(8));
+    const CT = Array.from({length: 8}, () => new Float64Array(8));
     const invSqrt2 = 1.0 / Math.sqrt(2.0);
 
     for (let j = 0; j < 8; j++) {
-      C[0][j] = 0.5 * invSqrt2;
-      CT[j][0] = C[0][j];
+        C[0][j] = 0.5 * invSqrt2;
+        CT[j][0] = C[0][j];
     }
     for (let i = 1; i < 8; i++) {
-      for (let j = 0; j < 8; j++) {
-        C[i][j] = 0.5 * Math.cos(((2 * j + 1) * i * Math.PI) / 16.0);
-        CT[j][i] = C[i][j];
-      }
-    }
-
-    function fastForwardDCT(block, out) {
-      const temp = new Float64Array(64);
-      for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
-          let sum = 0.0;
-          for (let k = 0; k < 8; k++) sum += C[i][k] * block[k * 8 + j];
-          temp[i * 8 + j] = sum;
+            C[i][j] = 0.5 * Math.cos(((2 * j + 1) * i * Math.PI) / 16.0);
+            CT[j][i] = C[i][j];
         }
-      }
-      for (let i = 0; i < 8; i++) {
-        for (let j = 0; j < 8; j++) {
-          let sum = 0.0;
-          for (let k = 0; k < 8; k++) sum += temp[i * 8 + k] * CT[k][j];
-          out[i * 8 + j] = sum;
-        }
-      }
     }
 
     function createPRNG(seed) {
-      let state = Number(BigInt(seed) % 2147483647n);
-      if (state <= 0) state += 2147483646;
-      return function() {
-        state = (state * 16807) % 2147483647;
-        return (state - 1) / 2147483646;
-      };
+        let state = Number(BigInt(seed) % 2147483647n);
+        if (state <= 0) state += 2147483646;
+        return function() {
+            state = Number((BigInt(state) * 16807n) % 2147483647n);
+            return (state - 1) / 2147483646;
+        };
     }
 
     function deriveSubSeed(masterSeed, key) {
-      const str = masterSeed + "_" + key;
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        hash = (Math.imul(31, hash) + str.charCodeAt(i)) | 0;
-      }
-      return Math.abs(hash);
+        const str = `${masterSeed}_${key}`;
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = (31 * hash + str.charCodeAt(i)) | 0;
+        }
+        return Math.abs(hash);
     }
 
-    let auditImg = null;
-    const auditInput = document.getElementById('auditFileInput');
-    const auditSeedInput = document.getElementById('auditSeedInput');
-    const btnAudit = document.getElementById('btnAudit');
-    const auditResultBox = document.getElementById('auditResultBox');
-
-    const uploadSeedInput = document.getElementById('uploadSeedInput');
-    const uploadPhotoId = document.getElementById('uploadPhotoId');
-    const btnCheckDB = document.getElementById('btnCheckDB');
-    const btnUploadDB = document.getElementById('btnUploadDB');
-    const serverStatusBox = document.getElementById('serverStatusBox');
-
-    auditInput.addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const match = file.name.match(/\d{12,14}/);
-      if (match) {
-        auditSeedInput.value = match[0];
-        uploadSeedInput.value = match[0];
-        uploadPhotoId.value = "IMG_" + match[0];
-      }
-
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        auditImg = new Image();
-        auditImg.src = evt.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-
-    btnAudit.addEventListener('click', async function() {
-      if (!auditImg) {
-        alert("Pilih file gambar terlebih dahulu!");
-        return;
-      }
-      if (!auditSeedInput.value) {
-        alert("Masukkan Master Seed terlebih dahulu!");
-        return;
-      }
-
-      auditResultBox.innerText = "Memverifikasi frekuensi forensik...";
-
-      const inputSeed = auditSeedInput.value.trim();
-      const rawW = auditImg.naturalWidth || auditImg.width;
-      const rawH = auditImg.naturalHeight || auditImg.height;
-
-      const origW = rawW - (rawW % 8);
-      const origH = rawH - (rawH % 8);
-
-      let bestMatch = evaluateAudit(auditImg, origW, origH, inputSeed);
-
-      const isAuthentic = bestMatch >= 60.0;
-
-      if (isAuthentic) {
-        auditResultBox.innerHTML = `
-          <div class="text-left space-y-1 w-full">
-            <div class="text-emerald-400 font-bold text-xs">🟢 AUTHENTIC PROVENANCE</div>
-            <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatch.toFixed(2)}%</strong></div>
-            <p class="text-[10px] text-slate-400">Pola frekuensi terbukti asli & tersinkronisasi.</p>
-          </div>
-        `;
-      } else {
-        auditResultBox.innerHTML = `
-          <div class="text-left space-y-1 w-full">
-            <div class="text-rose-400 font-bold text-xs">🔴 TAMPERED / SEED MISMATCH</div>
-            <div class="text-white text-[11px]">Match Correlation: <strong>${bestMatch.toFixed(2)}%</strong> (~50% acak)</div>
-            <p class="text-[10px] text-slate-400">Pola tidak cocok atau seed salah.</p>
-          </div>
-        `;
-      }
-    });
-
-    function evaluateAudit(imageObj, targetW, targetH, seedStr) {
-      const canvas = document.createElement('canvas');
-      canvas.width = targetW;
-      canvas.height = targetH;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(imageObj, 0, 0, targetW, targetH);
-
-      const imgData = ctx.getImageData(0, 0, targetW, targetH);
-      const data = imgData.data;
-
-      const subSeed = deriveSubSeed(seedStr, "PHOTO_DCT");
-      const rng = createPRNG(subSeed);
-
-      const blockY = new Float64Array(64);
-      const dct = new Float64Array(64);
-
-      let totalTested = 0;
-      let matchedCorrelation = 0;
-
-      for (let by = 0; by < targetH; by += 8) {
-        for (let bx = 0; bx < targetW; bx += 8) {
-          const isSelected = rng() <= SCATTER_RATIO;
-
-          let blockSumY = 0.0;
-          for (let y = 0; y < 8; y++) {
-            let rowIdx = ((by + y) * targetW + bx) * 4;
-            for (let x = 0; x < 8; x++) {
-              let idx = rowIdx + (x * 4);
-              let yVal = 0.299 * data[idx] + 0.587 * data[idx+1] + 0.114 * data[idx+2];
-              blockSumY += yVal;
-              blockY[y * 8 + x] = yVal - 128.0;
+    function fastForwardDCT(block, out) {
+        const temp = new Float64Array(64);
+        for (let i = 0; i < 8; i++) {
+            for (let j = 0; j < 8; j++) {
+                let sum = 0.0;
+                for (let k = 0; k < 8; k++) sum += C[i][k] * block[k * 8 + j];
+                temp[i * 8 + j] = sum;
             }
-          }
-
-          const expectedBit1 = rng() > 0.5 ? 1 : 0;
-          const expectedBit2 = rng() > 0.5 ? 1 : 0;
-
-          if (!isSelected) continue;
-
-          const avgLuma = blockSumY / 64.0;
-          if (avgLuma < 25.0 || avgLuma > 230.0) continue;
-
-          fastForwardDCT(blockY, dct);
-
-          // Test Pair 1
-          {
-            const actualBit1 = dct[2 * 8 + 1] > dct[1 * 8 + 2] ? 1 : 0;
-            if (actualBit1 === expectedBit1) matchedCorrelation++;
-            totalTested++;
-          }
-
-          // Test Pair 2
-          {
-            const actualBit2 = dct[3 * 8 + 0] > dct[0 * 8 + 3] ? 1 : 0;
-            if (actualBit2 === expectedBit2) matchedCorrelation++;
-            totalTested++;
-          }
         }
-      }
-
-      return totalTested > 0 ? (matchedCorrelation / totalTested) * 100 : 0;
+        for (let i = 0; i < 8; i++) {
+            for (let j = 0; j < 8; j++) {
+                let sum = 0.0;
+                for (let k = 0; k < 8; k++) sum += temp[i * 8 + k] * CT[k][j];
+                out[i * 8 + j] = sum;
+            }
+        }
     }
 
-    btnCheckDB.addEventListener('click', async function() {
-      const seed = uploadSeedInput.value.trim();
-      if (!seed) { alert("Masukkan Master Seed!"); return; }
+    function verifyImage() {
+        const seedVal = document.getElementById('seedInput').value.trim();
+        const fileInput = document.getElementById('imageInput');
+        const resultBox = document.getElementById('resultBox');
+        const resultTitle = document.getElementById('resultTitle');
+        const resultMeta = document.getElementById('resultMeta');
 
-      serverStatusBox.innerText = "Memeriksa database Supabase...";
-      try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/seeds?master_seed=eq.${seed}&select=*`, {
-          method: 'GET',
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        const data = await res.json();
-        if (data.length > 0) {
-          serverStatusBox.innerHTML = `
-            <div class="text-left text-emerald-400 space-y-1 w-full">
-              <div class="font-bold">🟢 TERDAFTAR DI DATABASE</div>
-              <div class="text-[10px] text-slate-300">Photo ID: ${data[0].photo_id}</div>
-              <div class="text-[10px] text-slate-300">Waktu: ${data[0].created_at || 'Terekam'}</div>
-            </div>
-          `;
-        } else {
-          serverStatusBox.innerHTML = `
-            <div class="text-left text-amber-400 space-y-1 w-full">
-              <div class="font-bold">⚠️ BELUM TERDAFTAR</div>
-              <p class="text-[10px] text-slate-400">Master Seed ini belum pernah di-upload ke database.</p>
-            </div>
-          `;
+        if (!seedVal || !fileInput.files[0]) {
+            alert('Harap masukkan Master Seed dan pilih file gambar!');
+            return;
         }
-      } catch (err) {
-        serverStatusBox.innerText = "Gagal menghubungi server: " + err.message;
-      }
-    });
 
-    btnUploadDB.addEventListener('click', async function() {
-      const seed = uploadSeedInput.value.trim();
-      const photoId = uploadPhotoId.value.trim() || ("IMG_" + seed);
-      if (!seed) { alert("Masukkan Master Seed!"); return; }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.getElementById('canvas');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-      serverStatusBox.innerText = "Mengirim ke Supabase Notary...";
-      try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/seeds`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({
-            photo_id: photoId,
-            master_seed: parseInt(seed),
-            width: 1080,
-            height: 1920,
-            scatter_count: 1200
-          })
-        });
+                // Normalisasi dimensi ke basis 2560 x 1920
+                canvas.width = TARGET_BASE_W;
+                canvas.height = TARGET_BASE_H;
+                
+                ctx.drawImage(img, 0, 0, TARGET_BASE_W, TARGET_BASE_H);
 
-        if (res.ok) {
-          serverStatusBox.innerHTML = `
-            <div class="text-left text-emerald-400 space-y-1 w-full">
-              <div class="font-bold">🟢 BERHASIL DICATAT!</div>
-              <p class="text-[10px] text-slate-300">Master Seed <strong>${seed}</strong> resmi tersimpan di Notary publik.</p>
-            </div>
-          `;
-        } else {
-          serverStatusBox.innerHTML = `
-            <div class="text-left text-rose-400 space-y-1 w-full">
-              <div class="font-bold">🔴 GAGAL MENCATAT (${res.status})</div>
-              <p class="text-[10px] text-slate-300">Periksa izin RLS Supabase.</p>
-            </div>
-          `;
-        }
-      } catch (err) {
-        serverStatusBox.innerText = "Gagal mengunggah: " + err.message;
-      }
-    });
-  </script>
+                const imgData = ctx.getImageData(0, 0, TARGET_BASE_W, TARGET_BASE_H);
+                const data = imgData.data;
+
+                const subSeed = deriveSubSeed(seedVal, "PHOTO_DCT");
+                const rng = createPRNG(subSeed);
+
+                let totalAudited = 0;
+                let matchedBits = 0;
+
+                const blockY = new Float64Array(64);
+                const dct = new Float64Array(64);
+
+                for (let by = 0; by < TARGET_BASE_H; by += 8) {
+                    for (let bx = 0; bx < TARGET_BASE_W; bx += 8) {
+                        const isSelected = rng() <= SCATTER_RATIO;
+
+                        let blockSumY = 0.0;
+                        for (let y = 0; y < 8; y++) {
+                            const rowIdx = ((by + y) * TARGET_BASE_W + bx) * 4;
+                            for (let x = 0; x < 8; x++) {
+                                const p = rowIdx + (x * 4);
+                                const yVal = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+                                blockSumY += yVal;
+                                blockY[y * 8 + x] = yVal - 128.0;
+                            }
+                        }
+
+                        const expectedBit1 = rng() > 0.5 ? 1 : 0;
+                        const expectedBit2 = rng() > 0.5 ? 1 : 0;
+
+                        if (!isSelected) continue;
+
+                        const avgLuma = blockSumY / 64.0;
+                        if (avgLuma < 25.0 || avgLuma > 230.0) continue;
+
+                        fastForwardDCT(blockY, dct);
+
+                        // Evaluasi Pair 1: (2,1) vs (1,2)
+                        const bit1 = dct[2 * 8 + 1] > dct[1 * 8 + 2] ? 1 : 0;
+                        if (bit1 === expectedBit1) matchedBits++;
+                        totalAudited++;
+
+                        // Evaluasi Pair 2: (3,0) vs (0,3)
+                        const bit2 = dct[3 * 8 + 0] > dct[0 * 8 + 3] ? 1 : 0;
+                        if (bit2 === expectedBit2) matchedBits++;
+                        totalAudited++;
+                    }
+                }
+
+                const matchRate = (matchedBits / totalAudited) * 100;
+                resultBox.style.display = 'block';
+
+                const isOriginalSize = (img.naturalWidth === TARGET_BASE_W && img.naturalHeight === TARGET_BASE_H);
+                const sourceTag = isOriginalSize ? "Original Native Capture" : `Downscaled (${img.naturalWidth}x${img.naturalHeight} / WhatsApp Compressed)`;
+
+                if (matchRate >= 80.0) {
+                    resultBox.className = "result-box valid";
+                    resultTitle.innerHTML = `🟢 AUTHENTIC / VERIFIED (${matchRate.toFixed(2)}%)`;
+                } else {
+                    resultBox.className = "result-box invalid";
+                    resultTitle.innerHTML = `🔴 TAMPERED / FORGED (${matchRate.toFixed(2)}%)`;
+                }
+
+                resultMeta.innerHTML = `
+                    <b>Deteksi Sumber:</b> ${sourceTag}<br>
+                    <b>Total Bit Diaudit:</b> ${totalAudited.toLocaleString()} bit<br>
+                    <b>Bit Cocok:</b> ${matchedBits.toLocaleString()} bit<br>
+                    <b>Ambang Batas Keaslian:</b> &ge; 80.00% (Baseline Acak = 50.00%)
+                `;
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+    }
+</script>
+
 </body>
 </html>
