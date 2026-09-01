@@ -47,7 +47,7 @@
 
 <script>
     const BLOCK_SIZE = 16;
-    const SCATTER_RATIO = 0.15;
+    const SCATTER_RATIO = 0.08;
 
     // Matriks DCT 16x16
     const C = Array.from({length: BLOCK_SIZE}, () => new Float64Array(BLOCK_SIZE));
@@ -163,18 +163,18 @@
 
                 fastForwardDCT16(blockY, dct);
 
-                // Pair 1: Ultra-Low Frequency (1,0) vs (0,1)
-                const c1 = dct[1 * BLOCK_SIZE + 0];
-                const c2 = dct[0 * BLOCK_SIZE + 1];
+                // Pair 1: Diagonal Halus (2,1) vs (1,2)
+                const c1 = dct[2 * BLOCK_SIZE + 1];
+                const c2 = dct[1 * BLOCK_SIZE + 2];
                 const diff1 = c1 - c2;
                 const bit1 = diff1 > 0 ? 1 : 0;
                 if (bit1 === expectedBit1) matchedBits++;
                 totalGapEnergy += Math.abs(diff1);
                 totalAudited++;
 
-                // Pair 2: Low-Mid Frequency (2,0) vs (0,2)
-                const c3 = dct[2 * BLOCK_SIZE + 0];
-                const c4 = dct[0 * BLOCK_SIZE + 2];
+                // Pair 2: Diagonal Harmonis (3,1) vs (1,3)
+                const c3 = dct[3 * BLOCK_SIZE + 1];
+                const c4 = dct[1 * BLOCK_SIZE + 3];
                 const diff2 = c3 - c4;
                 const bit2 = diff2 > 0 ? 1 : 0;
                 if (bit2 === expectedBit2) matchedBits++;
@@ -247,7 +247,7 @@
 
                 resultMeta.innerHTML = `
                     <b>Mode Deteksi:</b> ${mode}<br>
-                    <b>Rata-rata Selisih Gap:</b> ${res.avgGap.toFixed(2)} (Target Asli: 48.0)<br>
+                    <b>Rata-rata Selisih Gap:</b> ${res.avgGap.toFixed(2)} (Target Asli: 24.0)<br>
                     <b>Bit Cocok:</b> ${res.matchedBits.toLocaleString()} / ${res.totalAudited.toLocaleString()} bit<br>
                     <b>Ambang Batas Minimum:</b> &ge; ${threshold.toFixed(2)}% (Baseline Acak = 50.00%)
                 `;
