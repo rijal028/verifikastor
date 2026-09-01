@@ -27,15 +27,15 @@
     
     <div class="input-group">
         <label for="seedInput">Master Seed (Timestamp):</label>
-        <input type="text" id="seedInput" placeholder="Contoh: 1725166800000">
+        <input type="text" id="seedInput" placeholder="Example: 1725166800000">
     </div>
 
     <div class="input-group">
-        <label for="imageInput">Pilih Foto (Original atau WhatsApp):</label>
+        <label for="imageInput">Select Image (Original or WhatsApp Compressed):</label>
         <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp">
     </div>
 
-    <button onclick="verifyImage()">Verifikasi Keaslian</button>
+    <button onclick="verifyImage()">Verify Authenticity</button>
 
     <div id="resultBox" class="result-box">
         <div id="resultTitle" style="font-weight: bold; font-size: 1.1rem;"></div>
@@ -49,7 +49,7 @@
     const BLOCK_SIZE = 16;
     const SCATTER_RATIO = 0.08;
 
-    // Matriks DCT 16x16
+    // Precomputed 16x16 DCT Matrices
     const C = Array.from({length: BLOCK_SIZE}, () => new Float64Array(BLOCK_SIZE));
     const CT = Array.from({length: BLOCK_SIZE}, () => new Float64Array(BLOCK_SIZE));
     const invSqrtN = 1.0 / Math.sqrt(BLOCK_SIZE);
@@ -77,20 +77,20 @@
     }
 
     function deriveSubSeed(masterSeed, key) {
-        const str = `${masterSeed}_${key}`;
+        const seedString = `${masterSeed}_${key}`;
         let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = (31 * hash + str.charCodeAt(i)) | 0;
+        for (let i = 0; i < seedString.length; i++) {
+            hash = (31 * hash + seedString.charCodeAt(i)) | 0;
         }
         return Math.abs(hash);
     }
 
-    function fastForwardDCT16(block, out) {
+    function fastForwardDCT16(inputBlock, outputCoefficients) {
         const temp = new Float64Array(BLOCK_SIZE * BLOCK_SIZE);
         for (let i = 0; i < BLOCK_SIZE; i++) {
             for (let j = 0; j < BLOCK_SIZE; j++) {
                 let sum = 0.0;
-                for (let k = 0; k < BLOCK_SIZE; k++) sum += C[i][k] * block[k * BLOCK_SIZE + j];
+                for (let k = 0; k < BLOCK_SIZE; k++) sum += C[i][k] * inputBlock[k * BLOCK_SIZE + j];
                 temp[i * BLOCK_SIZE + j] = sum;
             }
         }
@@ -98,7 +98,7 @@
             for (let j = 0; j < BLOCK_SIZE; j++) {
                 let sum = 0.0;
                 for (let k = 0; k < BLOCK_SIZE; k++) sum += temp[i * BLOCK_SIZE + k] * CT[k][j];
-                out[i * BLOCK_SIZE + j] = sum;
+                outputCoefficients[i * BLOCK_SIZE + j] = sum;
             }
         }
     }
@@ -110,7 +110,7 @@
         return 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
     }
 
-    function auditImage(data, width, height, targetW, targetH, seedVal, isDownscaled) {
+    function auditImage(data, width, height, targetWidth, targetHeight, seedVal, isDownscaled) {
         const subSeed = deriveSubSeed(seedVal, "PHOTO_DCT16");
         const rng = createPRNG(subSeed);
 
@@ -118,27 +118,27 @@
         let matchedBits = 0;
         let totalGapEnergy = 0.0;
 
-        const N2 = BLOCK_SIZE * BLOCK_SIZE;
-        const blockY = new Float64Array(N2);
-        const dct = new Float64Array(N2);
+        const totalPixelsPerBlock = BLOCK_SIZE * BLOCK_SIZE;
+        const blockLuma = new Float64Array(totalPixelsPerBlock);
+        const dctCoefficients = new Float64Array(totalPixelsPerBlock);
 
-        const scaleX = width / targetW;
-        const scaleY = height / targetH;
+        const scaleX = width / targetWidth;
+        const scaleY = height / targetHeight;
 
-        for (let by = 0; by < targetH; by += BLOCK_SIZE) {
-            for (let bx = 0; bx < targetW; bx += BLOCK_SIZE) {
+        for (let by = 0; by < targetHeight; by += BLOCK_SIZE) {
+            for (let bx = 0; bx < targetWidth; bx += BLOCK_SIZE) {
                 const isSelected = rng() <= SCATTER_RATIO;
 
-                let blockSumY = 0.0;
+                let blockSumLuma = 0.0;
 
                 if (!isDownscaled) {
                     for (let y = 0; y < BLOCK_SIZE; y++) {
                         const rowIdx = ((by + y) * width + bx) * 4;
                         for (let x = 0; x < BLOCK_SIZE; x++) {
                             const p = rowIdx + (x * 4);
-                            const yVal = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
-                            blockSumY += yVal;
-                            blockY[y * BLOCK_SIZE + x] = yVal - 128.0;
+                            const luma = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+                            blockSumLuma += luma;
+                            blockLuma[y * BLOCK_SIZE + x] = luma - 128.0;
                         }
                     }
                 } else {
@@ -146,9 +146,9 @@
                         const sampleY = (by + y + 0.5) * scaleY;
                         for (let x = 0; x < BLOCK_SIZE; x++) {
                             const sampleX = (bx + x + 0.5) * scaleX;
-                            const yVal = getLumaAt(data, width, height, sampleX, sampleY);
-                            blockSumY += yVal;
-                            blockY[y * BLOCK_SIZE + x] = yVal - 128.0;
+                            const luma = getLumaAt(data, width, height, sampleX, sampleY);
+                            blockSumLuma += luma;
+                            blockLuma[y * BLOCK_SIZE + x] = luma - 128.0;
                         }
                     }
                 }
@@ -158,14 +158,14 @@
 
                 if (!isSelected) continue;
 
-                const avgLuma = blockSumY / N2;
+                const avgLuma = blockSumLuma / totalPixelsPerBlock;
                 if (avgLuma < 25.0 || avgLuma > 230.0) continue;
 
-                fastForwardDCT16(blockY, dct);
+                fastForwardDCT16(blockLuma, dctCoefficients);
 
                 // Pair 1: (2,1) vs (1,2)
-                const c1 = dct[2 * BLOCK_SIZE + 1];
-                const c2 = dct[1 * BLOCK_SIZE + 2];
+                const c1 = dctCoefficients[2 * BLOCK_SIZE + 1];
+                const c2 = dctCoefficients[1 * BLOCK_SIZE + 2];
                 const diff1 = c1 - c2;
                 const bit1 = diff1 > 0 ? 1 : 0;
                 if (bit1 === expectedBit1) matchedBits++;
@@ -173,8 +173,8 @@
                 totalAudited++;
 
                 // Pair 2: (3,1) vs (1,3)
-                const c3 = dct[3 * BLOCK_SIZE + 1];
-                const c4 = dct[1 * BLOCK_SIZE + 3];
+                const c3 = dctCoefficients[3 * BLOCK_SIZE + 1];
+                const c4 = dctCoefficients[1 * BLOCK_SIZE + 3];
                 const diff2 = c3 - c4;
                 const bit2 = diff2 > 0 ? 1 : 0;
                 if (bit2 === expectedBit2) matchedBits++;
@@ -197,7 +197,7 @@
         const resultMeta = document.getElementById('resultMeta');
 
         if (!seedVal || !fileInput.files[0]) {
-            alert('Harap masukkan Master Seed dan pilih file gambar!');
+            alert('Please enter the Master Seed and select an image file!');
             return;
         }
 
@@ -205,46 +205,45 @@
         reader.onload = function(e) {
             const img = new Image();
             img.onload = function() {
-                const nw = img.naturalWidth;
-                const nh = img.naturalHeight;
+                const nativeWidth = img.naturalWidth;
+                const nativeHeight = img.naturalHeight;
 
                 const canvas = document.getElementById('canvas');
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-                canvas.width = nw;
-                canvas.height = nh;
-                ctx.drawImage(img, 0, 0, nw, nh);
+                canvas.width = nativeWidth;
+                canvas.height = nativeHeight;
+                ctx.drawImage(img, 0, 0, nativeWidth, nativeHeight);
 
-                const rawData = ctx.getImageData(0, 0, nw, nh).data;
+                const rawData = ctx.getImageData(0, 0, nativeWidth, nativeHeight).data;
 
-                // Cek apakah resolusi asli native (>= 2000px)
-                const isNativeDimension = (nw >= 2000 || nh >= 2000);
+                // Check whether the input has full native resolution (>= 2000px)
+                const isNativeDimension = (nativeWidth >= 2000 || nativeHeight >= 2000);
                 let res, mode, threshold;
 
                 if (isNativeDimension) {
-                    const targetW = nw - (nw % BLOCK_SIZE);
-                    const targetH = nh - (nh % BLOCK_SIZE);
-                    res = auditImage(rawData, nw, nh, targetW, targetH, seedVal, false);
-                    mode = `Original Native (${nw}x${nh}) [${targetW/16}x${targetH/16} Macroblocks]`;
+                    const targetWidth = nativeWidth - (nativeWidth % BLOCK_SIZE);
+                    const targetHeight = nativeHeight - (nativeHeight % BLOCK_SIZE);
+                    res = auditImage(rawData, nativeWidth, nativeHeight, targetWidth, targetHeight, seedVal, false);
+                    mode = `Original Native Capture (${nativeWidth}x${nativeHeight}) [${targetWidth/16}x${targetHeight/16} Macroblocks]`;
                     threshold = 85.0;
                 } else {
-                    // Downscaled WhatsApp: Rekonstruksi grid asli secara proporsional presisi
-                    // Estimasi faktor perkalian (biasanya 2.0x untuk square 1472->2944 atau 1.6x untuk 1600->2560)
-                    const maxDim = Math.max(nw, nh);
-                    let factor = 2.0; // default multiplier WhatsApp untuk sensor 3K/Square
+                    // Downscaled WhatsApp: Dynamically reconstruct proportional canonical grid
+                    const maxDim = Math.max(nativeWidth, nativeHeight);
+                    let factor = 2.0; // Default multiplier for 3K/Square sensor downscale
                     if (maxDim <= 1600 && maxDim > 1472) {
                         factor = 1.6;
                     }
 
-                    let rawTargetW = Math.round(nw * factor);
-                    let rawTargetH = Math.round(nh * factor);
+                    const rawTargetWidth = Math.round(nativeWidth * factor);
+                    const rawTargetHeight = Math.round(nativeHeight * factor);
 
-                    // Bulatkan ke kelipatan 16 terdekat yang sinkron
-                    const canW = Math.round(rawTargetW / BLOCK_SIZE) * BLOCK_SIZE;
-                    const canH = Math.round(rawTargetH / BLOCK_SIZE) * BLOCK_SIZE;
+                    // Align to closest synchronized multiple of 16
+                    const canonicalWidth = Math.round(rawTargetWidth / BLOCK_SIZE) * BLOCK_SIZE;
+                    const canonicalHeight = Math.round(rawTargetHeight / BLOCK_SIZE) * BLOCK_SIZE;
 
-                    res = auditImage(rawData, nw, nh, canW, canH, seedVal, true);
-                    mode = `WhatsApp Compressed (${nw}x${nh} &rarr; Grid Proposional ${canW}x${canH} [${canW/16}x${canH/16} Macroblocks])`;
+                    res = auditImage(rawData, nativeWidth, nativeHeight, canonicalWidth, canonicalHeight, seedVal, true);
+                    mode = `WhatsApp Compressed (${nativeWidth}x${nativeHeight} &rarr; Dynamic Grid ${canonicalWidth}x${canonicalHeight} [${canonicalWidth/16}x${canonicalHeight/16} Macroblocks])`;
                     threshold = 68.0;
                 }
 
@@ -259,10 +258,10 @@
                 }
 
                 resultMeta.innerHTML = `
-                    <b>Mode Deteksi:</b> ${mode}<br>
-                    <b>Rata-rata Selisih Gap:</b> ${res.avgGap.toFixed(2)} (Target Asli: 24.0)<br>
-                    <b>Bit Cocok:</b> ${res.matchedBits.toLocaleString()} / ${res.totalAudited.toLocaleString()} bit<br>
-                    <b>Ambang Batas Minimum:</b> &ge; ${threshold.toFixed(2)}% (Baseline Acak = 50.00%)
+                    <b>Detection Mode:</b> ${mode}<br>
+                    <b>Average Differential Gap:</b> ${res.avgGap.toFixed(2)} (Target Nominal: 24.0)<br>
+                    <b>Matched Bits:</b> ${res.matchedBits.toLocaleString()} / ${res.totalAudited.toLocaleString()} bits<br>
+                    <b>Authenticity Threshold:</b> &ge; ${threshold.toFixed(2)}% (Random Baseline = 50.00%)
                 `;
             };
             img.src = e.target.result;
