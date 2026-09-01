@@ -132,6 +132,7 @@
                 let blockSumLuma = 0.0;
 
                 if (!isDownscaled) {
+                    // Exact 1:1 Pixel Mapping for Native Captures
                     for (let y = 0; y < BLOCK_SIZE; y++) {
                         const rowIdx = ((by + y) * width + bx) * 4;
                         for (let x = 0; x < BLOCK_SIZE; x++) {
@@ -142,11 +143,36 @@
                         }
                     }
                 } else {
+                    // Area/Box-Integral Sampling for Downscaled & Highly Compressed Images
                     for (let y = 0; y < BLOCK_SIZE; y++) {
-                        const sampleY = (by + y + 0.5) * scaleY;
+                        const startY = (by + y) * scaleY;
+                        const endY = (by + y + 1) * scaleY;
+
                         for (let x = 0; x < BLOCK_SIZE; x++) {
-                            const sampleX = (bx + x + 0.5) * scaleX;
-                            const luma = getLumaAt(data, width, height, sampleX, sampleY);
+                            const startX = (bx + x) * scaleX;
+                            const endX = (bx + x + 1) * scaleX;
+
+                            let subLumaSum = 0.0;
+                            let subSamples = 0;
+
+                            const minSY = Math.max(0, Math.floor(startY));
+                            const maxSY = Math.min(height - 1, Math.floor(endY));
+                            const minSX = Math.max(0, Math.floor(startX));
+                            const maxSX = Math.min(width - 1, Math.floor(endX));
+
+                            for (let sy = minSY; sy <= maxSY; sy++) {
+                                const rowOffset = sy * width * 4;
+                                for (let sx = minSX; sx <= maxSX; sx++) {
+                                    const p = rowOffset + (sx * 4);
+                                    subLumaSum += 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+                                    subSamples++;
+                                }
+                            }
+
+                            const luma = subSamples > 0 
+                                ? (subLumaSum / subSamples) 
+                                : getLumaAt(data, width, height, (startX + endX) / 2.0, (startY + endY) / 2.0);
+
                             blockSumLuma += luma;
                             blockLuma[y * BLOCK_SIZE + x] = luma - 128.0;
                         }
@@ -217,7 +243,7 @@
 
                 const rawData = ctx.getImageData(0, 0, nativeWidth, nativeHeight).data;
 
-                // Cek apakah resolusi adalah foto asli (>= 2000px)
+                const maxDim = Math.max(nativeWidth, nativeHeight);
                 const isNativeDimension = (nativeWidth >= 2000 || nativeHeight >= 2000);
                 let res, mode, threshold;
 
@@ -229,7 +255,6 @@
                     threshold = 85.0;
                 } else {
                     // Downscaled (WhatsApp, Facebook, Instagram, etc.)
-                    // Tentukan Canonical Grid berdasarkan Rasio Aspek
                     const aspectRatio = nativeWidth / nativeHeight;
                     let canonicalWidth, canonicalHeight;
 
@@ -249,7 +274,9 @@
 
                     res = auditImage(rawData, nativeWidth, nativeHeight, canonicalWidth, canonicalHeight, seedVal, true);
                     mode = `Compressed Social Media (${nativeWidth}x${nativeHeight} &rarr; Canonical ${canonicalWidth}x${canonicalHeight} [${canonicalWidth/16}x${canonicalHeight/16} Macroblocks])`;
-                    threshold = 68.0;
+                    
+                    // Dynamic threshold: Extremely low resolutions (e.g. Facebook 526px) have lower energy retention
+                    threshold = maxDim < 800 ? 60.0 : 68.0;
                 }
 
                 resultBox.style.display = 'block';
