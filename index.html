@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SecurePixel Provenance Verifier</title>
+    <title>SecurePixel Provenance Verifier (Macroblock 16x16)</title>
     <style>
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
@@ -46,21 +46,24 @@
 <canvas id="canvas" style="display: none;"></canvas>
 
 <script>
-    const SCATTER_RATIO = 0.06;
+    const BLOCK_SIZE = 16;
+    const SCATTER_RATIO = 0.15;
 
-    // Inisialisasi Matriks DCT 8x8
-    const C = Array.from({length: 8}, () => new Float64Array(8));
-    const CT = Array.from({length: 8}, () => new Float64Array(8));
-    const invSqrt2 = 1.0 / Math.sqrt(2.0);
+    // Matriks DCT 16x16
+    const C = Array.from({length: BLOCK_SIZE}, () => new Float64Array(BLOCK_SIZE));
+    const CT = Array.from({length: BLOCK_SIZE}, () => new Float64Array(BLOCK_SIZE));
+    const invSqrtN = 1.0 / Math.sqrt(BLOCK_SIZE);
+    const sqrt2DivN = Math.sqrt(2.0 / BLOCK_SIZE);
 
-    for (let j = 0; j < 8; j++) {
-        C[0][j] = 0.5 * invSqrt2;
-        CT[j][0] = C[0][j];
+    for (let j = 0; j < BLOCK_SIZE; j++) {
+        C[0][j] = invSqrtN;
+        CT[j][0] = invSqrtN;
     }
-    for (let i = 1; i < 8; i++) {
-        for (let j = 0; j < 8; j++) {
-            C[i][j] = 0.5 * Math.cos(((2 * j + 1) * i * Math.PI) / 16.0);
-            CT[j][i] = C[i][j];
+    for (let i = 1; i < BLOCK_SIZE; i++) {
+        for (let j = 0; j < BLOCK_SIZE; j++) {
+            const val = sqrt2DivN * Math.cos(((2 * j + 1) * i * Math.PI) / (2.0 * BLOCK_SIZE));
+            C[i][j] = val;
+            CT[j][i] = val;
         }
     }
 
@@ -82,20 +85,20 @@
         return Math.abs(hash);
     }
 
-    function fastForwardDCT(block, out) {
-        const temp = new Float64Array(64);
-        for (let i = 0; i < 8; i++) {
-            for (let j = 0; j < 8; j++) {
+    function fastForwardDCT16(block, out) {
+        const temp = new Float64Array(BLOCK_SIZE * BLOCK_SIZE);
+        for (let i = 0; i < BLOCK_SIZE; i++) {
+            for (let j = 0; j < BLOCK_SIZE; j++) {
                 let sum = 0.0;
-                for (let k = 0; k < 8; k++) sum += C[i][k] * block[k * 8 + j];
-                temp[i * 8 + j] = sum;
+                for (let k = 0; k < BLOCK_SIZE; k++) sum += C[i][k] * block[k * BLOCK_SIZE + j];
+                temp[i * BLOCK_SIZE + j] = sum;
             }
         }
-        for (let i = 0; i < 8; i++) {
-            for (let j = 0; j < 8; j++) {
+        for (let i = 0; i < BLOCK_SIZE; i++) {
+            for (let j = 0; j < BLOCK_SIZE; j++) {
                 let sum = 0.0;
-                for (let k = 0; k < 8; k++) sum += temp[i * 8 + k] * CT[k][j];
-                out[i * 8 + j] = sum;
+                for (let k = 0; k < BLOCK_SIZE; k++) sum += temp[i * BLOCK_SIZE + k] * CT[k][j];
+                out[i * BLOCK_SIZE + j] = sum;
             }
         }
     }
@@ -108,45 +111,44 @@
     }
 
     function auditImage(data, width, height, targetW, targetH, seedVal, isDownscaled) {
-        const subSeed = deriveSubSeed(seedVal, "PHOTO_DCT");
+        const subSeed = deriveSubSeed(seedVal, "PHOTO_DCT16");
         const rng = createPRNG(subSeed);
 
         let totalAudited = 0;
         let matchedBits = 0;
         let totalGapEnergy = 0.0;
 
-        const blockY = new Float64Array(64);
-        const dct = new Float64Array(64);
+        const N2 = BLOCK_SIZE * BLOCK_SIZE;
+        const blockY = new Float64Array(N2);
+        const dct = new Float64Array(N2);
 
         const scaleX = width / targetW;
         const scaleY = height / targetH;
 
-        for (let by = 0; by < targetH; by += 8) {
-            for (let bx = 0; bx < targetW; bx += 8) {
+        for (let by = 0; by < targetH; by += BLOCK_SIZE) {
+            for (let bx = 0; bx < targetW; bx += BLOCK_SIZE) {
                 const isSelected = rng() <= SCATTER_RATIO;
 
                 let blockSumY = 0.0;
 
                 if (!isDownscaled) {
-                    // Jalur 1:1 Presisi Foto Asli
-                    for (let y = 0; y < 8; y++) {
+                    for (let y = 0; y < BLOCK_SIZE; y++) {
                         const rowIdx = ((by + y) * width + bx) * 4;
-                        for (let x = 0; x < 8; x++) {
+                        for (let x = 0; x < BLOCK_SIZE; x++) {
                             const p = rowIdx + (x * 4);
                             const yVal = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
                             blockSumY += yVal;
-                            blockY[y * 8 + x] = yVal - 128.0;
+                            blockY[y * BLOCK_SIZE + x] = yVal - 128.0;
                         }
                     }
                 } else {
-                    // Jalur Rekonstruksi Area untuk Gambar WhatsApp
-                    for (let y = 0; y < 8; y++) {
+                    for (let y = 0; y < BLOCK_SIZE; y++) {
                         const sampleY = (by + y + 0.5) * scaleY;
-                        for (let x = 0; x < 8; x++) {
+                        for (let x = 0; x < BLOCK_SIZE; x++) {
                             const sampleX = (bx + x + 0.5) * scaleX;
                             const yVal = getLumaAt(data, width, height, sampleX, sampleY);
                             blockSumY += yVal;
-                            blockY[y * 8 + x] = yVal - 128.0;
+                            blockY[y * BLOCK_SIZE + x] = yVal - 128.0;
                         }
                     }
                 }
@@ -156,23 +158,23 @@
 
                 if (!isSelected) continue;
 
-                const avgLuma = blockSumY / 64.0;
+                const avgLuma = blockSumY / N2;
                 if (avgLuma < 25.0 || avgLuma > 230.0) continue;
 
-                fastForwardDCT(blockY, dct);
+                fastForwardDCT16(blockY, dct);
 
-                // Evaluasi Pair 1: (2,1) vs (1,2)
-                const c1 = dct[2 * 8 + 1];
-                const c2 = dct[1 * 8 + 2];
+                // Pair 1: Ultra-Low Frequency (1,0) vs (0,1)
+                const c1 = dct[1 * BLOCK_SIZE + 0];
+                const c2 = dct[0 * BLOCK_SIZE + 1];
                 const diff1 = c1 - c2;
                 const bit1 = diff1 > 0 ? 1 : 0;
                 if (bit1 === expectedBit1) matchedBits++;
                 totalGapEnergy += Math.abs(diff1);
                 totalAudited++;
 
-                // Evaluasi Pair 2: (3,0) vs (0,3)
-                const c3 = dct[3 * 8 + 0];
-                const c4 = dct[0 * 8 + 3];
+                // Pair 2: Low-Mid Frequency (2,0) vs (0,2)
+                const c3 = dct[2 * BLOCK_SIZE + 0];
+                const c4 = dct[0 * BLOCK_SIZE + 2];
                 const diff2 = c3 - c4;
                 const bit2 = diff2 > 0 ? 1 : 0;
                 if (bit2 === expectedBit2) matchedBits++;
@@ -215,16 +217,15 @@
 
                 const rawData = ctx.getImageData(0, 0, nw, nh).data;
 
-                // Klasifikasi jalur berdasarkan dimensi aktual
                 const isNativeDimension = (nw >= 1900 && nh >= 1900);
                 let res, mode, threshold;
 
                 if (isNativeDimension) {
-                    const targetW = nw - (nw % 16);
-                    const targetH = nh - (nh % 16);
+                    const targetW = nw - (nw % BLOCK_SIZE);
+                    const targetH = nh - (nh % BLOCK_SIZE);
                     res = auditImage(rawData, nw, nh, targetW, targetH, seedVal, false);
                     mode = `Original Native (${nw}x${nh})`;
-                    threshold = 80.0;
+                    threshold = 85.0;
                 } else {
                     const isPortrait = nh > nw;
                     const canW = isPortrait ? 1920 : 2560;
@@ -245,8 +246,8 @@
                 }
 
                 resultMeta.innerHTML = `
-                    <b>Sumber Terdeteksi:</b> ${mode}<br>
-                    <b>Rata-rata Selisih Gap:</b> ${res.avgGap.toFixed(2)} (Target Asli: 28.0)<br>
+                    <b>Mode Deteksi:</b> ${mode}<br>
+                    <b>Rata-rata Selisih Gap:</b> ${res.avgGap.toFixed(2)} (Target Asli: 48.0)<br>
                     <b>Bit Cocok:</b> ${res.matchedBits.toLocaleString()} / ${res.totalAudited.toLocaleString()} bit<br>
                     <b>Ambang Batas Minimum:</b> &ge; ${threshold.toFixed(2)}% (Baseline Acak = 50.00%)
                 `;
