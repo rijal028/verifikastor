@@ -100,6 +100,86 @@
         }
     }
 
+    // Ekstraksi nilai Luma (Y) langsung dari pixel mentah
+    function getLumaAt(data, width, height, x, y) {
+        const px = Math.max(0, Math.min(width - 1, Math.floor(x)));
+        const py = Math.max(0, Math.min(height - 1, Math.floor(y)));
+        const idx = (py * width + px) * 4;
+        return 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+    }
+
+    function auditImage(data, width, height, targetW, targetH, seedVal, isDownscaled) {
+        const subSeed = deriveSubSeed(seedVal, "PHOTO_DCT");
+        const rng = createPRNG(subSeed);
+
+        let totalAudited = 0;
+        let matchedBits = 0;
+
+        const blockY = new Float64Array(64);
+        const dct = new Float64Array(64);
+
+        const scaleX = width / targetW;
+        const scaleY = height / targetH;
+
+        for (let by = 0; by < targetH; by += 8) {
+            for (let bx = 0; bx < targetW; bx += 8) {
+                const isSelected = rng() <= SCATTER_RATIO;
+
+                let blockSumY = 0.0;
+
+                if (!isDownscaled) {
+                    // Jalur Cepat 1:1 untuk Foto Asli
+                    for (let y = 0; y < 8; y++) {
+                        const rowIdx = ((by + y) * width + bx) * 4;
+                        for (let x = 0; x < 8; x++) {
+                            const p = rowIdx + (x * 4);
+                            const yVal = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+                            blockSumY += yVal;
+                            blockY[y * 8 + x] = yVal - 128.0;
+                        }
+                    }
+                } else {
+                    // Jalur Rekonstruksi Area untuk Gambar Terkompresi
+                    for (let y = 0; y < 8; y++) {
+                        const sampleY = (by + y + 0.5) * scaleY;
+                        for (let x = 0; x < 8; x++) {
+                            const sampleX = (bx + x + 0.5) * scaleX;
+                            const yVal = getLumaAt(data, width, height, sampleX, sampleY);
+                            blockSumY += yVal;
+                            blockY[y * 8 + x] = yVal - 128.0;
+                        }
+                    }
+                }
+
+                const expectedBit1 = rng() > 0.5 ? 1 : 0;
+                const expectedBit2 = rng() > 0.5 ? 1 : 0;
+
+                if (!isSelected) continue;
+
+                const avgLuma = blockSumY / 64.0;
+                if (avgLuma < 25.0 || avgLuma > 230.0) continue;
+
+                fastForwardDCT(blockY, dct);
+
+                // Evaluasi Pair 1: (2,1) vs (1,2)
+                const bit1 = dct[2 * 8 + 1] > dct[1 * 8 + 2] ? 1 : 0;
+                if (bit1 === expectedBit1) matchedBits++;
+                totalAudited++;
+
+                // Evaluasi Pair 2: (3,0) vs (0,3)
+                const bit2 = dct[3 * 8 + 0] > dct[0 * 8 + 3] ? 1 : 0;
+                if (bit2 === expectedBit2) matchedBits++;
+                totalAudited++;
+            }
+        }
+
+        return {
+            matchRate: totalAudited > 0 ? (matchedBits / totalAudited) * 100 : 0,
+            totalAudited,
+            matchedBits
+        };
+    }
+
     function verifyImage() {
         const seedVal = document.getElementById('seedInput').value.trim();
         const fileInput = document.getElementById('imageInput');
@@ -119,107 +199,50 @@
                 const nw = img.naturalWidth;
                 const nh = img.naturalHeight;
 
-                const isPortrait = nh > nw;
-                const origW = isPortrait ? 1920 : 2560;
-                const origH = isPortrait ? 2560 : 1920;
-
-                const isOriginal = (nw === origW && nh === origH) || (nw >= 1900 && nh >= 1900);
-                const scale = isOriginal ? 1.0 : (nw / origW);
-
                 const canvas = document.getElementById('canvas');
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-                // Render murni 1:1 sesuai ukuran file yang diupload (TANPA RESIZING)
                 canvas.width = nw;
                 canvas.height = nh;
                 ctx.drawImage(img, 0, 0, nw, nh);
 
                 const imgData = ctx.getImageData(0, 0, nw, nh);
-                const data = imgData.data;
+                const rawData = imgData.data;
 
-                const subSeed = deriveSubSeed(seedVal, "PHOTO_DCT");
-                const rng = createPRNG(subSeed);
+                // 1. Coba verifikasi native 1:1 langsung
+                const targetW = nw - (nw % 16);
+                const targetH = nh - (nh % 16);
+                let res = auditImage(rawData, nw, nh, targetW, targetH, seedVal, false);
+                let mode = `Native Capture (${nw}x${nh})`;
 
-                let totalAudited = 0;
-                let matchedBits = 0;
+                // 2. Jika match rate rendah (indikasi downscaled WA), uji dengan grid kanonikal 4:3
+                if (res.matchRate < 70.0) {
+                    const isPortrait = nh > nw;
+                    const canW = isPortrait ? 1920 : 2560;
+                    const canH = isPortrait ? 2560 : 1920;
 
-                const blockY = new Float64Array(64);
-                const dct = new Float64Array(64);
-
-                // Jalankan traversal sesuai grid kanonikal HP
-                for (let by = 0; by < origH; by += 8) {
-                    for (let bx = 0; bx < origW; bx += 8) {
-                        const isSelected = rng() <= SCATTER_RATIO;
-                        const expectedBit1 = rng() > 0.5 ? 1 : 0;
-                        const expectedBit2 = rng() > 0.5 ? 1 : 0;
-
-                        if (!isSelected) continue;
-
-                        // Petakan koordinat blok asli ke koordinat file yang diupload
-                        const actualBX = Math.floor(bx * scale);
-                        const actualBY = Math.floor(by * scale);
-
-                        // Ambil blok 8x8 dari lokasi piksel sebenarnya
-                        let blockSumY = 0.0;
-                        let validBlock = true;
-
-                        for (let y = 0; y < 8; y++) {
-                            const py = actualBY + y;
-                            if (py >= nh) { validBlock = false; break; }
-                            const rowOffset = py * nw * 4;
-
-                            for (let x = 0; x < 8; x++) {
-                                const px = actualBX + x;
-                                if (px >= nw) { validBlock = false; break; }
-                                const p = rowOffset + (px * 4);
-
-                                const yVal = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
-                                blockSumY += yVal;
-                                blockY[y * 8 + x] = yVal - 128.0;
-                            }
-                        }
-
-                        if (!validBlock) continue;
-
-                        const avgLuma = blockSumY / 64.0;
-                        if (avgLuma < 25.0 || avgLuma > 230.0) continue;
-
-                        fastForwardDCT(blockY, dct);
-
-                        // Evaluasi Pair 1: (2,1) vs (1,2)
-                        const bit1 = dct[2 * 8 + 1] > dct[1 * 8 + 2] ? 1 : 0;
-                        if (bit1 === expectedBit1) matchedBits++;
-                        totalAudited++;
-
-                        // Evaluasi Pair 2: (3,0) vs (0,3)
-                        const bit2 = dct[3 * 8 + 0] > dct[0 * 8 + 3] ? 1 : 0;
-                        if (bit2 === expectedBit2) matchedBits++;
-                        totalAudited++;
+                    const resCompressed = auditImage(rawData, nw, nh, canW, canH, seedVal, true);
+                    if (resCompressed.matchRate > res.matchRate) {
+                        res = resCompressed;
+                        mode = `Compressed/WhatsApp (${nw}x${nh} &rarr; Grid ${canW}x${canH})`;
                     }
                 }
 
-                const matchRate = totalAudited > 0 ? (matchedBits / totalAudited) * 100 : 0;
                 resultBox.style.display = 'block';
 
-                const sourceTag = isOriginal ? 
-                    `Original Native Capture (${nw}x${nh})` : 
-                    `WhatsApp Compressed (${nw}x${nh}) &bull; Scale ${scale.toFixed(2)}x Direct Mapped`;
-
-                // Ambang batas keaslian: Foto asli biasanya 99%, foto kompresi WA valid jika >= 70%
-                const threshold = isOriginal ? 85.0 : 68.0;
-
-                if (matchRate >= threshold) {
+                const threshold = 65.0; // Ambang batas toleransi re-encoding lossy
+                if (res.matchRate >= threshold) {
                     resultBox.className = "result-box valid";
-                    resultTitle.innerHTML = `🟢 AUTHENTIC / VERIFIED (${matchRate.toFixed(2)}%)`;
+                    resultTitle.innerHTML = `🟢 AUTHENTIC / VERIFIED (${res.matchRate.toFixed(2)}%)`;
                 } else {
                     resultBox.className = "result-box invalid";
-                    resultTitle.innerHTML = `🔴 TAMPERED / FORGED (${matchRate.toFixed(2)}%)`;
+                    resultTitle.innerHTML = `🔴 TAMPERED / FORGED (${res.matchRate.toFixed(2)}%)`;
                 }
 
                 resultMeta.innerHTML = `
-                    <b>Deteksi Sumber:</b> ${sourceTag}<br>
-                    <b>Total Bit Diaudit:</b> ${totalAudited.toLocaleString()} bit<br>
-                    <b>Bit Cocok:</b> ${matchedBits.toLocaleString()} bit<br>
+                    <b>Mode Deteksi:</b> ${mode}<br>
+                    <b>Total Bit Diaudit:</b> ${res.totalAudited.toLocaleString()} bit<br>
+                    <b>Bit Cocok:</b> ${res.matchedBits.toLocaleString()} bit<br>
                     <b>Ambang Batas Keaslian:</b> &ge; ${threshold.toFixed(2)}% (Baseline Acak = 50.00%)
                 `;
             };
