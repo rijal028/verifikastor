@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SecurePixel Provenance Verifier (Macroblock 16x16)</title>
+    <title>SecurePixel Dynamic Verifier</title>
     <style>
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
@@ -163,7 +163,7 @@
 
                 fastForwardDCT16(blockY, dct);
 
-                // Pair 1: Diagonal Halus (2,1) vs (1,2)
+                // Pair 1: (2,1) vs (1,2)
                 const c1 = dct[2 * BLOCK_SIZE + 1];
                 const c2 = dct[1 * BLOCK_SIZE + 2];
                 const diff1 = c1 - c2;
@@ -172,7 +172,7 @@
                 totalGapEnergy += Math.abs(diff1);
                 totalAudited++;
 
-                // Pair 2: Diagonal Harmonis (3,1) vs (1,3)
+                // Pair 2: (3,1) vs (1,3)
                 const c3 = dct[3 * BLOCK_SIZE + 1];
                 const c4 = dct[1 * BLOCK_SIZE + 3];
                 const diff2 = c3 - c4;
@@ -217,21 +217,34 @@
 
                 const rawData = ctx.getImageData(0, 0, nw, nh).data;
 
-                const isNativeDimension = (nw >= 1900 && nh >= 1900);
+                // Cek apakah resolusi asli native (>= 2000px)
+                const isNativeDimension = (nw >= 2000 || nh >= 2000);
                 let res, mode, threshold;
 
                 if (isNativeDimension) {
                     const targetW = nw - (nw % BLOCK_SIZE);
                     const targetH = nh - (nh % BLOCK_SIZE);
                     res = auditImage(rawData, nw, nh, targetW, targetH, seedVal, false);
-                    mode = `Original Native (${nw}x${nh})`;
+                    mode = `Original Native (${nw}x${nh}) [${targetW/16}x${targetH/16} Macroblocks]`;
                     threshold = 85.0;
                 } else {
-                    const isPortrait = nh > nw;
-                    const canW = isPortrait ? 1920 : 2560;
-                    const canH = isPortrait ? 2560 : 1920;
+                    // Downscaled WhatsApp: Rekonstruksi grid asli secara proporsional presisi
+                    // Estimasi faktor perkalian (biasanya 2.0x untuk square 1472->2944 atau 1.6x untuk 1600->2560)
+                    const maxDim = Math.max(nw, nh);
+                    let factor = 2.0; // default multiplier WhatsApp untuk sensor 3K/Square
+                    if (maxDim <= 1600 && maxDim > 1472) {
+                        factor = 1.6;
+                    }
+
+                    let rawTargetW = Math.round(nw * factor);
+                    let rawTargetH = Math.round(nh * factor);
+
+                    // Bulatkan ke kelipatan 16 terdekat yang sinkron
+                    const canW = Math.round(rawTargetW / BLOCK_SIZE) * BLOCK_SIZE;
+                    const canH = Math.round(rawTargetH / BLOCK_SIZE) * BLOCK_SIZE;
+
                     res = auditImage(rawData, nw, nh, canW, canH, seedVal, true);
-                    mode = `WhatsApp Compressed (${nw}x${nh} &rarr; Target Grid ${canW}x${canH})`;
+                    mode = `WhatsApp Compressed (${nw}x${nh} &rarr; Grid Proposional ${canW}x${canH} [${canW/16}x${canH/16} Macroblocks])`;
                     threshold = 68.0;
                 }
 
