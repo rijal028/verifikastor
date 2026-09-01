@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SecurePixel Dynamic Verifier</title>
+    <title>SecurePixel Universal Verifier</title>
     <style>
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
@@ -31,7 +31,7 @@
     </div>
 
     <div class="input-group">
-        <label for="imageInput">Select Image (Original or WhatsApp Compressed):</label>
+        <label for="imageInput">Select Image (Original, WhatsApp, Facebook, etc.):</label>
         <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp">
     </div>
 
@@ -217,7 +217,7 @@
 
                 const rawData = ctx.getImageData(0, 0, nativeWidth, nativeHeight).data;
 
-                // Check whether the input has full native resolution (>= 2000px)
+                // Cek apakah resolusi adalah foto asli (>= 2000px)
                 const isNativeDimension = (nativeWidth >= 2000 || nativeHeight >= 2000);
                 let res, mode, threshold;
 
@@ -228,22 +228,27 @@
                     mode = `Original Native Capture (${nativeWidth}x${nativeHeight}) [${targetWidth/16}x${targetHeight/16} Macroblocks]`;
                     threshold = 85.0;
                 } else {
-                    // Downscaled WhatsApp: Dynamically reconstruct proportional canonical grid
-                    const maxDim = Math.max(nativeWidth, nativeHeight);
-                    let factor = 2.0; // Default multiplier for 3K/Square sensor downscale
-                    if (maxDim <= 1600 && maxDim > 1472) {
-                        factor = 1.6;
+                    // Downscaled (WhatsApp, Facebook, Instagram, etc.)
+                    // Tentukan Canonical Grid berdasarkan Rasio Aspek
+                    const aspectRatio = nativeWidth / nativeHeight;
+                    let canonicalWidth, canonicalHeight;
+
+                    if (Math.abs(aspectRatio - 1.0) <= 0.08) {
+                        // Square Aspect Ratio (1:1) -> Sensor Native 2944 x 2944
+                        canonicalWidth = 2944;
+                        canonicalHeight = 2944;
+                    } else if (nativeWidth > nativeHeight) {
+                        // 4:3 Landscape -> Sensor Native 2560 x 1920
+                        canonicalWidth = 2560;
+                        canonicalHeight = 1920;
+                    } else {
+                        // 4:3 Portrait -> Sensor Native 1920 x 2560
+                        canonicalWidth = 1920;
+                        canonicalHeight = 2560;
                     }
 
-                    const rawTargetWidth = Math.round(nativeWidth * factor);
-                    const rawTargetHeight = Math.round(nativeHeight * factor);
-
-                    // Align to closest synchronized multiple of 16
-                    const canonicalWidth = Math.round(rawTargetWidth / BLOCK_SIZE) * BLOCK_SIZE;
-                    const canonicalHeight = Math.round(rawTargetHeight / BLOCK_SIZE) * BLOCK_SIZE;
-
                     res = auditImage(rawData, nativeWidth, nativeHeight, canonicalWidth, canonicalHeight, seedVal, true);
-                    mode = `WhatsApp Compressed (${nativeWidth}x${nativeHeight} &rarr; Dynamic Grid ${canonicalWidth}x${canonicalHeight} [${canonicalWidth/16}x${canonicalHeight/16} Macroblocks])`;
+                    mode = `Compressed Social Media (${nativeWidth}x${nativeHeight} &rarr; Canonical ${canonicalWidth}x${canonicalHeight} [${canonicalWidth/16}x${canonicalHeight/16} Macroblocks])`;
                     threshold = 68.0;
                 }
 
