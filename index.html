@@ -46,8 +46,6 @@
 <canvas id="canvas" style="display: none;"></canvas>
 
 <script>
-    const TARGET_BASE_W = 2560;
-    const TARGET_BASE_H = 1920;
     const SCATTER_RATIO = 0.06;
 
     const C = Array.from({length: 8}, () => new Float64Array(8));
@@ -117,16 +115,42 @@
         reader.onload = function(e) {
             const img = new Image();
             img.onload = function() {
+                const nw = img.naturalWidth;
+                const nh = img.naturalHeight;
+
+                // Tentukan orientasi asli
+                const isPortrait = nh > nw;
+                const canonicalW = isPortrait ? 1920 : 2560;
+                const canonicalH = isPortrait ? 2560 : 1920;
+
+                const isOriginalSize = (nw === canonicalW && nh === canonicalH) || 
+                                       (nw % 16 === 0 && nh % 16 === 0 && (nw >= 1920 || nh >= 1920));
+
                 const canvas = document.getElementById('canvas');
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-                // Normalisasi dimensi ke basis 2560 x 1920
-                canvas.width = TARGET_BASE_W;
-                canvas.height = TARGET_BASE_H;
-                
-                ctx.drawImage(img, 0, 0, TARGET_BASE_W, TARGET_BASE_H);
+                let targetW, targetH;
 
-                const imgData = ctx.getImageData(0, 0, TARGET_BASE_W, TARGET_BASE_H);
+                if (isOriginalSize) {
+                    // Jika file asli, baca 1:1 murni tanpa resize
+                    targetW = nw - (nw % 16);
+                    targetH = nh - (nh % 16);
+                    canvas.width = targetW;
+                    canvas.height = targetH;
+                    ctx.imageSmoothingEnabled = false;
+                    ctx.drawImage(img, 0, 0, targetW, targetH);
+                } else {
+                    // Jika dari WhatsApp / downscaled, pulihkan ke ukuran kanonikal proporsional
+                    targetW = canonicalW;
+                    targetH = canonicalH;
+                    canvas.width = targetW;
+                    canvas.height = targetH;
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(img, 0, 0, targetW, targetH);
+                }
+
+                const imgData = ctx.getImageData(0, 0, targetW, targetH);
                 const data = imgData.data;
 
                 const subSeed = deriveSubSeed(seedVal, "PHOTO_DCT");
@@ -138,13 +162,13 @@
                 const blockY = new Float64Array(64);
                 const dct = new Float64Array(64);
 
-                for (let by = 0; by < TARGET_BASE_H; by += 8) {
-                    for (let bx = 0; bx < TARGET_BASE_W; bx += 8) {
+                for (let by = 0; by < targetH; by += 8) {
+                    for (let bx = 0; bx < targetW; bx += 8) {
                         const isSelected = rng() <= SCATTER_RATIO;
 
                         let blockSumY = 0.0;
                         for (let y = 0; y < 8; y++) {
-                            const rowIdx = ((by + y) * TARGET_BASE_W + bx) * 4;
+                            const rowIdx = ((by + y) * targetW + bx) * 4;
                             for (let x = 0; x < 8; x++) {
                                 const p = rowIdx + (x * 4);
                                 const yVal = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
@@ -175,13 +199,14 @@
                     }
                 }
 
-                const matchRate = (matchedBits / totalAudited) * 100;
+                const matchRate = totalAudited > 0 ? (matchedBits / totalAudited) * 100 : 0;
                 resultBox.style.display = 'block';
 
-                const isOriginalSize = (img.naturalWidth === TARGET_BASE_W && img.naturalHeight === TARGET_BASE_H);
-                const sourceTag = isOriginalSize ? "Original Native Capture" : `Downscaled (${img.naturalWidth}x${img.naturalHeight} / WhatsApp Compressed)`;
+                const sourceTag = isOriginalSize ? 
+                    `Original Native Capture (${nw}x${nh})` : 
+                    `Downscaled/WhatsApp (${nw}x${nh}) &rarr; Restored to Canonical (${targetW}x${targetH})`;
 
-                if (matchRate >= 80.0) {
+                if (matchRate >= 75.0) {
                     resultBox.className = "result-box valid";
                     resultTitle.innerHTML = `🟢 AUTHENTIC / VERIFIED (${matchRate.toFixed(2)}%)`;
                 } else {
@@ -190,10 +215,10 @@
                 }
 
                 resultMeta.innerHTML = `
-                    <b>Deteksi Sumber:</b> ${sourceTag}<br>
+                    <b>Deteksi Dimensi:</b> ${sourceTag}<br>
                     <b>Total Bit Diaudit:</b> ${totalAudited.toLocaleString()} bit<br>
                     <b>Bit Cocok:</b> ${matchedBits.toLocaleString()} bit<br>
-                    <b>Ambang Batas Keaslian:</b> &ge; 80.00% (Baseline Acak = 50.00%)
+                    <b>Ambang Batas Keaslian:</b> &ge; 75.00% (Baseline Acak = 50.00%)
                 `;
             };
             img.src = e.target.result;
